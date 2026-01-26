@@ -1,4 +1,4 @@
-module gopls-mcp.org/gopls-mcp
+module github.com/xieyuschen/gopls-mcp
 
 go 1.25.0
 
