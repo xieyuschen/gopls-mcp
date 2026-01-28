@@ -308,10 +308,10 @@ func printSummary(suite *BenchmarkSuite) {
 	fmt.Println("  🚀 Warm Performance: After cache warmup, MCP is 100-400x faster per query")
 	fmt.Println("  ⚡ Quick Break-Even: Startup cost (~1.1s) amortized after just 3 queries")
 	fmt.Println("  💾 Memory Efficient: 209 MB RSS for 117-package project")
-	fmt.Println("  📝 Note: go_diagnostics vs go_build")
+	fmt.Println("  📝 Note: go_build_check vs go_build")
 	fmt.Println("     While operations differ (incremental type-check vs full compilation),")
 	fmt.Println("     they serve the same user intent: 'check for errors after changes'.")
-	fmt.Println("     go_diagnostics provides the instant feedback loop developers expect")
+	fmt.Println("     go_build_check provides the instant feedback loop developers expect")
 	fmt.Println("     in their editors, making it the fair comparison for interactive workflows.")
 	fmt.Println(strings.Repeat("=", 80))
 

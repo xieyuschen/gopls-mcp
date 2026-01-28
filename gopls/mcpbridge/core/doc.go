@@ -68,7 +68,7 @@ The frequent symbol finding populates the context.
 LLM should use this tool to get symbol details of package instead of reading package files manually.
 `,
 
-	ToolGoDiagnostics: `go_diagnostics allows the LLM to check syntax and type errors in a lightweight and fast way.
+	ToolGoBuildCheck: `go_build_check allows the LLM to check syntax and type errors in a lightweight and fast way.
 
 Standard LLM workflows verify code change works by triggering 'go build' by shell command
 to ensure syntax and type usages are correct.

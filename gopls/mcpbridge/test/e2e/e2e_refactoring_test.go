@@ -341,7 +341,7 @@ func TestRefactoring_MultiFileChange(t *testing.T) {
 		// Test: Analyze multiple files before refactoring
 		// Run diagnostics to ensure files are clean before refactoring
 		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-			Name: "go_diagnostics",
+			Name: "go_build_check",
 			Arguments: map[string]any{
 				"Cwd": globalGoplsMcpDir,
 			},

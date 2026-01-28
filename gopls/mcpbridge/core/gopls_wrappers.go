@@ -383,7 +383,7 @@ func formatPackageSymbolsForAPI(result *api.OListPackageSymbols, includeDocs, in
 	return b.String()
 }
 
-// ===== go_diagnostics =====
+// ===== go_build_check =====
 // Origin: gopls/internal/mcp/workspace_diagnostics.go workspaceDiagnosticsHandler()
 
 func handleGoDiagnostics(ctx context.Context, h *Handler, req *mcp.CallToolRequest, input api.IDiagnosticsParams) (*mcp.CallToolResult, *api.ODiagnosticsResult, error) {
@@ -1199,7 +1199,7 @@ func categorizeTool(name string) string {
 		return "environment"
 
 	// Analysis
-	case name == "go_diagnostics",
+	case name == "go_build_check",
 		name == "go_analyze_workspace",
 		name == "go_get_dependency_graph":
 		return "analysis"

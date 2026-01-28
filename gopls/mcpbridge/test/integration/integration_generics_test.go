@@ -455,8 +455,8 @@ func main() {
 
 		// Start gopls-mcp
 
-		// Use go_diagnostics to see the error
-		tool := "go_diagnostics"
+		// Use go_build_check to see the error
+		tool := "go_build_check"
 		args := map[string]any{
 			"files": []string{mainGoPath},
 		}
@@ -521,8 +521,8 @@ func main() {
 
 		// Start gopls-mcp
 
-		// Use go_diagnostics to see the error
-		tool := "go_diagnostics"
+		// Use go_build_check to see the error
+		tool := "go_build_check"
 		args := map[string]any{
 			"files": []string{mainGoPath},
 		}
@@ -590,8 +590,8 @@ func main() {
 		// Start gopls-mcp
 
 		t.Run("DiagnosticsShowNoErrors", func(t *testing.T) {
-			// Use go_diagnostics to verify no errors
-			tool := "go_diagnostics"
+			// Use go_build_check to verify no errors
+			tool := "go_build_check"
 			args := map[string]any{
 				"files": []string{mainGoPath},
 			}
@@ -694,8 +694,8 @@ func main() {
 
 		// Start gopls-mcp
 
-		// Use go_diagnostics to verify no errors
-		tool := "go_diagnostics"
+		// Use go_build_check to verify no errors
+		tool := "go_build_check"
 		args := map[string]any{
 			"files": []string{mainGoPath},
 		}
@@ -779,8 +779,8 @@ func main() {
 
 		// Start gopls-mcp
 
-		// Use go_diagnostics to verify no errors
-		tool := "go_diagnostics"
+		// Use go_build_check to verify no errors
+		tool := "go_build_check"
 		args := map[string]any{
 			"files": []string{mainGoPath},
 		}

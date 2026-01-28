@@ -65,9 +65,9 @@ Speedup = Mean(Traditional Tool) / Mean(MCP Tool)
 
 Direct comparisons are made where user intent is identical, even if the underlying operation differs slightly:
 
-*   **`go_diagnostics` vs `go build`**:
+*   **`go_build_check` vs `go build`**:
     *   *User Intent*: "Check my code for errors."
-    *   *Difference*: `go build` compiles the binary; `go_diagnostics` performs incremental type-checking.
+    *   *Difference*: `go build` compiles the binary; `go_build_check` performs incremental type-checking.
     *   *Validity*: For the user's goal of validation, the comparison is valid.
 
 *   **`go_search` vs `grep`**:

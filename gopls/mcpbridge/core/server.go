@@ -20,7 +20,7 @@ const (
 
 	// Integrated gopls MCP tools
 	ToolGetPackageSymbolDetail = "go_get_package_symbol_detail"
-	ToolGoDiagnostics          = "go_diagnostics"
+	ToolGoBuildCheck           = "go_build_check"
 	ToolGoSearch               = "go_search"
 	ToolGoSymbolReferences     = "go_symbol_references"
 	ToolGoDryrunRenameSymbol   = "go_dryrun_rename_symbol"
@@ -73,7 +73,7 @@ var tools = []Tool{
 	},
 
 	GenericTool[api.IDiagnosticsParams, *api.ODiagnosticsResult]{
-		Name:        ToolGoDiagnostics,
+		Name:        ToolGoBuildCheck,
 		Description: "Check for compilation and type errors. FAST: uses incremental type checking (faster than 'go build'). Use this to verify code correctness and populate the workspace cache for other tools. Returns detailed error information with file/line/column.",
 		Handler:     handleGoDiagnostics, // wrapper for workspaceDiagnosticsHandler()
 	},

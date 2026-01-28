@@ -97,7 +97,7 @@ The benchmark suite tests **13 operations across 7 categories**:
 
 ⚠️ **Variance**: Expect ±10-30% variance due to filesystem caching, OS scheduling
 
-⚠️ **Different Operations**: go_diagnostics and go_build perform different operations (incremental vs full)
+⚠️ **Different Operations**: go_build_check and go_build perform different operations (incremental vs full)
 
 **Read [METHODOLOGY.md](./methodology/) for complete limitations analysis.**
 

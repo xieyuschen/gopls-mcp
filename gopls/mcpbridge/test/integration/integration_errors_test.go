@@ -166,14 +166,14 @@ func main( {
 		}
 
 		t.Run("GoDiagnostics_MalformedCode", func(t *testing.T) {
-			tool := "go_diagnostics"
+			tool := "go_build_check"
 			args := map[string]any{
 				"files": []string{mainGoPath},
 			}
 
 			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
 			if err != nil {
-				t.Fatalf("Failed to call go_diagnostics on malformed code: %v", err)
+				t.Fatalf("Failed to call go_build_check on malformed code: %v", err)
 			}
 
 			if res == nil {

@@ -512,7 +512,7 @@ func TestRealWorkflow_DiagnosticsAndQuality(t *testing.T) {
 	t.Run("CheckCodebaseHealth", func(t *testing.T) {
 		// Test: Run diagnostics on entire codebase
 		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-			Name: "go_diagnostics",
+			Name: "go_build_check",
 			Arguments: map[string]any{
 				"Cwd": globalGoplsMcpDir,
 			},

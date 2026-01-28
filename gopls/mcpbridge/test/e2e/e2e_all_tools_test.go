@@ -244,8 +244,8 @@ func TestAllTools(t *testing.T) {
 		},
 		// Quality Tools
 		{
-			name: "go_diagnostics",
-			tool: "go_diagnostics",
+			name: "go_build_check",
+			tool: "go_build_check",
 			args: map[string]any{
 				"Cwd": globalGoplsMcpDir,
 			},

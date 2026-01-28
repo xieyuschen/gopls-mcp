@@ -326,7 +326,7 @@ func TestGenerics_RealWorldUsage(t *testing.T) {
 	testCases := []testCase{
 		{
 			name: "diagnostics_on_generic_code",
-			tool: "go_diagnostics",
+			tool: "go_build_check",
 			args: map[string]any{
 				"Cwd": globalGoplsMcpDir,
 			},

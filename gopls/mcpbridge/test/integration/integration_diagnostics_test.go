@@ -1,6 +1,6 @@
 package integration
 
-// End-to-end test for go_diagnostics functionality.
+// End-to-end test for go_build_check functionality.
 
 import (
 	"os"
@@ -12,14 +12,14 @@ import (
 	"golang.org/x/tools/gopls/mcpbridge/test/testutil"
 )
 
-// TestGoDiagnosticsE2E is an end-to-end test that verifies go_diagnostics works.
+// TestGoDiagnosticsE2E is an end-to-end test that verifies go_build_check works.
 func TestGoDiagnosticsE2E(t *testing.T) {
 	t.Run("CleanProject", func(t *testing.T) {
 		// Use the simple test project (has no errors)
 
 		// Start gopls-mcp
 
-		tool := "go_diagnostics"
+		tool := "go_build_check"
 		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: map[string]any{}})
 		if err != nil {
 			t.Fatalf("Failed to call tool %s: %v", tool, err)
@@ -65,7 +65,7 @@ func MissingBrace() {
 
 		// Start gopls-mcp
 
-		tool := "go_diagnostics"
+		tool := "go_build_check"
 		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: map[string]any{
 			"Cwd": projectDir,
 		}})
@@ -110,7 +110,7 @@ func main() {
 			t.Fatal(err)
 		}
 
-		tool := "go_diagnostics"
+		tool := "go_build_check"
 		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: map[string]any{
 			"Cwd": projectDir,
 		}})
@@ -158,7 +158,7 @@ func main() {
 			t.Fatal(err)
 		}
 
-		tool := "go_diagnostics"
+		tool := "go_build_check"
 		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: map[string]any{
 			"Cwd": projectDir,
 		}})
@@ -205,7 +205,7 @@ func main() {
 			t.Fatal(err)
 		}
 
-		tool := "go_diagnostics"
+		tool := "go_build_check"
 		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: map[string]any{
 			"Cwd": projectDir,
 		}})

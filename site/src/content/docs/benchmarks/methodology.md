@@ -160,7 +160,7 @@ For each comparison benchmark:
 - Dependency resolution and linking
 - Binary generation
 
-**Workload difference:** `go build` performs 10-100x more work than `go_diagnostics`. The comparison is NOT functionally equivalent.
+**Workload difference:** `go build` performs 10-100x more work than `go_build_check`. The comparison is NOT functionally equivalent.
 
 **Comparison status:** ⚠️ Misleading comparison - different operations with different scopes.
 
@@ -383,7 +383,7 @@ traditionalStats := RunIterations(10, func() time.Duration {
 mcpStats := RunIterations(10, func() time.Duration {
     start := time.Now()
     session.CallTool(ctx, &mcp.CallToolParams{
-        Name: "go_diagnostics",
+        Name: "go_build_check",
         Arguments: map[string]any{"files": []string{}},
     })
     return time.Since(start)
@@ -492,9 +492,9 @@ mcpStats := RunIterations(10, func() time.Duration {
 
 
 
-`go_diagnostics` and `go build` perform different operations:
+`go_build_check` and `go build` perform different operations:
 
-| Dimension | `go build` | gopls-mcp `go_diagnostics` |
+| Dimension | `go build` | gopls-mcp `go_build_check` |
 |-----------|------------|----------------------------|
 | **Operation Scope** | Full compilation pipeline (type-check → compile → link) | Incremental type-check (changed packages only) |
 | **Process Model** | Ephemeral process spawn | Persistent server with warm cache |
@@ -509,7 +509,7 @@ Users typically ask: "I made changes, does my code still compile?"
 
 For this common workflow:
 - `go build` recompiles everything (full operation)
-- `go_diagnostics` incrementally type-checks (minimal sufficient operation)
+- `go_build_check` incrementally type-checks (minimal sufficient operation)
 
 The measured speedup reflects **avoiding unnecessary work** for the user's actual goal.
 

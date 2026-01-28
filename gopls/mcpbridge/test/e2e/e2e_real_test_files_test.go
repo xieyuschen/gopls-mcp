@@ -20,7 +20,7 @@ func TestRealTestFiles_DiagnosticsOnTests(t *testing.T) {
 		e2eDir := filepath.Join(globalGoplsMcpDir, "test", "e2e")
 
 		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-			Name: "go_diagnostics",
+			Name: "go_build_check",
 			Arguments: map[string]any{
 				"Cwd": e2eDir,
 			},
@@ -43,7 +43,7 @@ func TestRealTestFiles_DiagnosticsOnTests(t *testing.T) {
 		integrationDir := filepath.Join(globalGoplsMcpDir, "test", "integration")
 
 		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-			Name: "go_diagnostics",
+			Name: "go_build_check",
 			Arguments: map[string]any{
 				"Cwd": integrationDir,
 			},

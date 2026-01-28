@@ -684,7 +684,7 @@ func BenchmarkErrorDetection(ctx context.Context, session *mcp.ClientSession, pr
 		{
 			name:     "Workspace Diagnostics",
 			category: "Error Detection",
-			tool:     "go_diagnostics",
+			tool:     "go_build_check",
 			args: func(projectDir string) map[string]any {
 				return map[string]any{
 					"files": []string{},
@@ -761,7 +761,7 @@ func BenchmarkComparisonWithTraditionalTools(ctx context.Context, session *mcp.C
 	// Compare: grep -r vs go_search
 	results = append(results, compareGrep(ctx, session, projectDir))
 
-	// Compare: go build vs go_diagnostics
+	// Compare: go build vs go_build_check
 	results = append(results, compareGoBuild(ctx, session, projectDir))
 
 	return results
@@ -970,7 +970,7 @@ func compareGoBuild(ctx context.Context, session *mcp.ClientSession, projectDir 
 	mcpStats := RunBenchmarkWithConfig(func() time.Duration {
 		start := time.Now()
 		_, err := session.CallTool(ctx, &mcp.CallToolParams{
-			Name: "go_diagnostics",
+			Name: "go_build_check",
 			Arguments: map[string]any{
 				"files": []string{},
 			},

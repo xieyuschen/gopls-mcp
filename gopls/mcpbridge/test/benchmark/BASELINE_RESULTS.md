@@ -86,9 +86,9 @@ These benchmarks measure **steady-state speedup** after warm cache is achieved.
 - **Steady-State Speedup:** 587.3x faster
 - **Note:** Speedup measured after warm cache. Cold start adds ~1.2s overhead (see README.md).
 - **Why This Comparison:** While `go build` performs full compilation and
-  `go_diagnostics` provides incremental type-checking, both serve the same
+  `go_build_check` provides incremental type-checking, both serve the same
   user intent: **'check for errors after changes'**.
-  go_diagnostics provides the instant feedback loop developers expect
+  go_build_check provides the instant feedback loop developers expect
   in their editor, making this the relevant comparison for interactive workflows.
 - **Variance (CV):** 8.2% - ✅ Very consistent
 

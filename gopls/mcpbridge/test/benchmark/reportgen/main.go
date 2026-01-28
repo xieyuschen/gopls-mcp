@@ -230,9 +230,9 @@ func generateReport(suite BenchmarkSuite, compact bool) string {
 
 				if benchmarkName == "go build" {
 					sb.WriteString(fmt.Sprintf("- **Why This Comparison:** While `go build` performs full compilation and\n"))
-					sb.WriteString(fmt.Sprintf("  `go_diagnostics` provides incremental type-checking, both serve the same\n"))
+					sb.WriteString(fmt.Sprintf("  `go_build_check` provides incremental type-checking, both serve the same\n"))
 					sb.WriteString(fmt.Sprintf("  user intent: **'check for errors after changes'**.\n"))
-					sb.WriteString(fmt.Sprintf("  go_diagnostics provides the instant feedback loop developers expect\n"))
+					sb.WriteString(fmt.Sprintf("  go_build_check provides the instant feedback loop developers expect\n"))
 					sb.WriteString(fmt.Sprintf("  in their editor, making this the relevant comparison for interactive workflows.\n"))
 				}
 

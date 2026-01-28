@@ -671,7 +671,7 @@ go 1.21
 		}
 
 		// Run diagnostics first
-		diagTool := "go_diagnostics"
+		diagTool := "go_build_check"
 		diagArgs := map[string]any{}
 
 		diagRes, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: diagTool, Arguments: diagArgs})

@@ -84,11 +84,11 @@ The frequent symbol finding populates the context.
 LLM should use this tool to get symbol details of package instead of reading package files manually.
 
 
-### `go_diagnostics`
+### `go_build_check`
 
 > Check for compilation and type errors. FAST: uses incremental type checking (faster than 'go build'). Use this to verify code correctness and populate the workspace cache for other tools. Returns detailed error information with file/line/column.
 
-go_diagnostics allows the LLM to check syntax and type errors in a lightweight and fast way.
+go_build_check allows the LLM to check syntax and type errors in a lightweight and fast way.
 
 Standard LLM workflows verify code change works by triggering 'go build' by shell command
 to ensure syntax and type usages are correct.

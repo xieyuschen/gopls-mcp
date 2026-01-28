@@ -60,7 +60,7 @@ type OGetPackageSymbolDetailResult struct {
 	Symbols []Symbol `json:"symbols" jsonschema:"the symbols matching the provided filters"`
 }
 
-// IDiagnosticsParams is the input for go_diagnostics tool.
+// IDiagnosticsParams is the input for go_build_check tool.
 type IDiagnosticsParams struct {
 	// todo: the input 'files' are weird, let's say LLM tries to verify the whole change,
 	// how could it know which files are active files? this needs improvement.
@@ -73,7 +73,7 @@ type IDiagnosticsParams struct {
 	Cwd string `json:"Cwd,omitempty" jsonschema:"the working directory for diagnostics (default: use default view)"`
 }
 
-// ODiagnosticsResult is the output for go_diagnostics tool.
+// ODiagnosticsResult is the output for go_build_check tool.
 type ODiagnosticsResult struct {
 	// TODO: is the Summary helpful and necessary?
 	Summary     string       `json:"summary" jsonschema:"diagnostics summary"`

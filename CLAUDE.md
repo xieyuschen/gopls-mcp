@@ -7,7 +7,7 @@ This ensures accuracy, saves tokens, and mimics how human experts use IDEs.
 
 ## 🚫 Restrictions
 *   **DO NOT** use `grep`, `ripgrep`, or `find` to locate symbol definitions or references.
-*   **DO NOT** use `go build` to check for compilation errors - use `go_diagnostics` instead (~500x faster).
+*   **DO NOT** use `go build` to check for compilation errors - use `go_build_check` instead (~500x faster).
 *   **DO NOT** read full files solely to understand a single function's signature.
 *   **DO NOT** make assumptions about package structure; use discovery tools.
 
@@ -36,7 +36,7 @@ This ensures accuracy, saves tokens, and mimics how human experts use IDEs.
 ### 3. Verification (CRITICAL)
 | Goal | Tool | Why |
 |---|---|---|
-| **Check Errors/Build**| `go_diagnostics` | **REPLACES `go build`.** Run after edits to verify compilation. ~500x faster than `go build` via incremental type checking. Returns detailed errors with file/line/column. |
+| **Check Errors/Build**| `go_build_check` | **REPLACES `go build`.** Run after edits to verify compilation. ~500x faster than `go build` via incremental type checking. Returns detailed errors with file/line/column. |
 | **Dry Run Refactor** | `go_rename_symbol` | Preview refactors safely before applying changes. |
 
 ## 🏗️ Repository Context: gopls-mcp

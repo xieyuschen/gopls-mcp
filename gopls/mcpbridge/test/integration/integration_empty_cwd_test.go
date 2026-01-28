@@ -170,7 +170,7 @@ func main() {
 			t.Fatal(err)
 		}
 
-		tool := "go_diagnostics"
+		tool := "go_build_check"
 		args := map[string]any{
 			// Don't provide "cwd" or "files"
 		}

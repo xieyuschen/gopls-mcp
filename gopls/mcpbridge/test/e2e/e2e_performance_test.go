@@ -149,7 +149,7 @@ func TestPerformance_BatchOperations(t *testing.T) {
 		},
 		{
 			name:    "MultipleFileDiagnostics",
-			tool:    "go_diagnostics",
+			tool:    "go_build_check",
 			args:    map[string]any{"Cwd": globalGoplsMcpDir},
 			timeout: 3 * time.Second,
 			assertion: func(t *testing.T, content string, duration time.Duration) {
@@ -433,7 +433,7 @@ func TestPerformance_DiagnosticsIncremental(t *testing.T) {
 		// Test: First diagnostics run (may be slower due to cache warmup)
 		start := time.Now()
 		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-			Name: "go_diagnostics",
+			Name: "go_build_check",
 			Arguments: map[string]any{
 				"Cwd": globalGoplsMcpDir,
 			},
@@ -460,7 +460,7 @@ func TestPerformance_DiagnosticsIncremental(t *testing.T) {
 		// Test: Second run should be faster (incremental checking)
 		start := time.Now()
 		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-			Name: "go_diagnostics",
+			Name: "go_build_check",
 			Arguments: map[string]any{
 				"Cwd": globalGoplsMcpDir,
 			},

@@ -21,7 +21,7 @@ func TestErrorScenarios(t *testing.T) {
 		// Test 1: Syntax Errors
 		{
 			name: "SyntaxErrors_Diagnostics",
-			tool: "go_diagnostics",
+			tool: "go_build_check",
 			setup: func(t *testing.T) map[string]any {
 				tmpDir := t.TempDir()
 				brokenFile := filepath.Join(tmpDir, "broken_syntax.go")
@@ -65,7 +65,7 @@ func TestErrorScenarios(t *testing.T) {
 		// Test 2: Missing Imports
 		{
 			name: "MissingImports_Diagnostics",
-			tool: "go_diagnostics",
+			tool: "go_build_check",
 			setup: func(t *testing.T) map[string]any {
 				tmpDir := t.TempDir()
 				missingImportFile := filepath.Join(tmpDir, "missing_import.go")
@@ -109,7 +109,7 @@ func TestErrorScenarios(t *testing.T) {
 		// Test 3: Type Errors
 		{
 			name: "TypeErrors_Diagnostics",
-			tool: "go_diagnostics",
+			tool: "go_build_check",
 			setup: func(t *testing.T) map[string]any {
 				tmpDir := t.TempDir()
 				typeErrorFile := filepath.Join(tmpDir, "type_errors.go")
@@ -174,7 +174,7 @@ func TestErrorScenarios(t *testing.T) {
 		// Test 5: Undeclared Variables
 		{
 			name: "UndeclaredVariables_Diagnostics",
-			tool: "go_diagnostics",
+			tool: "go_build_check",
 			setup: func(t *testing.T) map[string]any {
 				tmpDir := t.TempDir()
 				undeclaredFile := filepath.Join(tmpDir, "undeclared.go")
@@ -195,7 +195,7 @@ func TestErrorScenarios(t *testing.T) {
 		// Test 6: Invalid Package Structure
 		{
 			name: "InvalidPackage_DiagnosticsMismatchedPackages",
-			tool: "go_diagnostics",
+			tool: "go_build_check",
 			setup: func(t *testing.T) map[string]any {
 				tmpDir := t.TempDir()
 				file1 := filepath.Join(tmpDir, "file1.go")
@@ -260,7 +260,7 @@ func TestErrorScenarios(t *testing.T) {
 		// Test 8: Large File with Errors
 		{
 			name: "LargeFileWithErrors_DiagnosticsOnLargeFile",
-			tool: "go_diagnostics",
+			tool: "go_build_check",
 			args: map[string]any{
 				"Cwd": globalGoplsMcpDir,
 			},

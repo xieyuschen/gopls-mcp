@@ -532,7 +532,7 @@ func TestGetCallHierarchy_MultipleFiles(t *testing.T) {
 
 		// Force gopls to analyze the project first
 		_, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-			Name: "go_diagnostics",
+			Name: "go_build_check",
 			Arguments: map[string]any{
 				"Cwd": projectDir,
 			},
@@ -576,7 +576,7 @@ func TestGetCallHierarchy_MultipleFiles(t *testing.T) {
 
 		// Force gopls to analyze the project first
 		_, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-			Name: "go_diagnostics",
+			Name: "go_build_check",
 			Arguments: map[string]any{
 				"Cwd": projectDir,
 			},

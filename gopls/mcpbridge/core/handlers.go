@@ -860,7 +860,7 @@ func buildNextSteps(identity api.ProjectIdentity, stats api.ProjectStats, catego
 		steps = append(steps, fmt.Sprintf("→ Check core packages like %s for key data structures", corePkgs[0]))
 	}
 
-	steps = append(steps, "→ Use go_diagnostics to check for compilation errors")
+	steps = append(steps, "→ Use go_build_check to check for compilation errors")
 	steps = append(steps, "→ Use list_package_symbols to explore a package's API surface")
 
 	return steps

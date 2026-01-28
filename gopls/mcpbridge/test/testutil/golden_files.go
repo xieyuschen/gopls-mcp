@@ -65,8 +65,8 @@ const (
 	GoldenDependencyGraphStdlib       = "go_get_dependency_graph_stdlib_packages.golden"
 	GoldenDependencyGraphTransitive   = "go_get_dependency_graph_transitive_dependencies.golden"
 
-	// Diagnostics Tool (go_diagnostics)
-	GoldenDiagnostics = "go_diagnostics_e2e.golden"
+	// Diagnostics Tool (go_build_check)
+	GoldenDiagnostics = "go_build_check_e2e.golden"
 
 	// Read File Tool (go_read_file)
 	GoldenReadFile = "go_read_file_e2e.golden"
