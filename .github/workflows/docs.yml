@@ -15,7 +15,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -36,10 +36,17 @@ jobs:
         run: npm run build
         working-directory: ./site
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-dist
+          path: ./site/dist
+
       - name: Publish to Cloudflare Pages
+        if: github.ref == 'refs/heads/master'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy ./site/dist --project-name=gopls-mcp-docs --branch=${{ github.head_ref || github.ref_name }}
+          command: pages deploy ./site/dist --project-name=gopls-mcp-docs --branch=master
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
