@@ -43,8 +43,8 @@ jobs:
           go run benchmark_main.go \
             -project ../../../ \
             -output benchmark_results.json \
-            -compare
-        continue-on-error: true
+            -compare \
+            -binary /tmp/gopls-mcp
 
       - name: Generate benchmark reports
         working-directory: ./gopls/mcpbridge/test/benchmark

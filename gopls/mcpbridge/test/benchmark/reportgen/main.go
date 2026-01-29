@@ -147,27 +147,18 @@ func generateReport(suite BenchmarkSuite, compact bool) string {
 		sb.WriteString("### Overall Statistics\n\n")
 	}
 
-	if compact {
-		// List format for compact mode
-		sb.WriteString(fmt.Sprintf("- **Total Duration:** %s\n", formatDuration(suite.TotalDuration)))
-		sb.WriteString(fmt.Sprintf("- **Benchmarks:** %d total, %d successful, %d failed\n",
-			suite.Summary.TotalBenchmarks, suite.Summary.Successful, suite.Summary.Failed))
-		sb.WriteString(fmt.Sprintf("- **Average Latency:** %s\n", formatDuration(suite.Summary.AverageDuration)))
-		sb.WriteString(fmt.Sprintf("- **Speedup Range:** %s\n", suite.Summary.SpeedupRange))
-		sb.WriteString("\n")
-	} else {
-		// Table format for full mode
-		sb.WriteString("| Metric | Value |\n")
-		sb.WriteString("|--------|-------|\n")
-		sb.WriteString(fmt.Sprintf("| Total Benchmarks | %d |\n", suite.Summary.TotalBenchmarks))
-		sb.WriteString(fmt.Sprintf("| Successful | %d ✅ |\n", suite.Summary.Successful))
-		sb.WriteString(fmt.Sprintf("| Failed | %d ❌ |\n", suite.Summary.Failed))
-		sb.WriteString(fmt.Sprintf("| Average Duration | %s |\n", formatDuration(suite.Summary.AverageDuration)))
-		sb.WriteString(fmt.Sprintf("| Total Duration | %s |\n", formatDuration(suite.TotalDuration)))
+	// Table format for both modes
+	sb.WriteString("| Metric | Value |\n")
+	sb.WriteString("|--------|-------|\n")
+	sb.WriteString(fmt.Sprintf("| Total Duration | %s |\n", formatDuration(suite.TotalDuration)))
+	sb.WriteString(fmt.Sprintf("| Benchmarks | %d total, %d successful, %d failed |\n",
+		suite.Summary.TotalBenchmarks, suite.Summary.Successful, suite.Summary.Failed))
+	sb.WriteString(fmt.Sprintf("| Average Latency | %s |\n", formatDuration(suite.Summary.AverageDuration)))
+	sb.WriteString(fmt.Sprintf("| Speedup Range | %s |\n", suite.Summary.SpeedupRange))
+	if !compact {
 		sb.WriteString(fmt.Sprintf("| Total Items Found | %d |\n", suite.Summary.TotalItemsFound))
-		sb.WriteString(fmt.Sprintf("| Speedup Range | %s |\n", suite.Summary.SpeedupRange))
-		sb.WriteString("\n")
 	}
+	sb.WriteString("\n")
 
 	// Comparison Benchmarks
 	if compact {
@@ -215,6 +206,16 @@ func generateReport(suite BenchmarkSuite, compact bool) string {
 		}
 		sb.WriteString("\n")
 
+		// Explanation for grep performance
+		if compact {
+			sb.WriteString("**Note:** `grep -r` is faster for simple text matching, but semantic tools provide:\n")
+			sb.WriteString("- ✅ Type-safe navigation (no false positives like \"Handler\" matching \"handler\")\n")
+			sb.WriteString("- ✅ Fuzzy matching (find symbols with partial names)\n")
+			sb.WriteString("- ✅ Cross-reference analysis (find all usages, including through interfaces)\n")
+			sb.WriteString("- ✅ Call hierarchy and semantic understanding\n")
+			sb.WriteString("\n")
+		}
+
 		// Detailed comparison results (Full mode only)
 		if !compact {
 			sb.WriteString("### Detailed Results\n\n")
@@ -254,13 +255,15 @@ func generateReport(suite BenchmarkSuite, compact bool) string {
 	}
 
 	categories := groupByCategory(suite.Results)
+	sb.WriteString("| Category | Average Latency | Tests |\n")
+	sb.WriteString("|----------|----------------|-------|\n")
 	for cat, results := range categories {
 		var total int64
 		for _, r := range results {
 			total += r.Duration
 		}
 		avg := total / int64(len(results))
-		sb.WriteString(fmt.Sprintf("- **%s:** %s average (%d tests)\n", cat, formatDuration(avg), len(results)))
+		sb.WriteString(fmt.Sprintf("| %s | %s | %d |\n", cat, formatDuration(avg), len(results)))
 	}
 	sb.WriteString("\n")
 

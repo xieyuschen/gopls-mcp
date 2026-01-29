@@ -46,6 +46,7 @@ var (
 	projectDir  = flag.String("project", "", "Project directory to benchmark (default: use gopls itself)")
 	verbose     = flag.Bool("verbose", false, "Enable verbose output")
 	compareWith = flag.Bool("compare", true, "Run comparison benchmarks with traditional tools")
+	binaryPath  = flag.String("binary", "", "Path to pre-built gopls-mcp binary (skips cold start build)")
 )
 
 func main() {
@@ -93,7 +94,7 @@ func main() {
 
 	// Run Cold Start Benchmark FIRST (requires fresh server)
 	log.Println("🥶 Running Cold Start Benchmark (measures startup overhead)...")
-	coldStartResult := internal.BenchmarkColdStart(projectAbs)
+	coldStartResult := internal.BenchmarkColdStart(projectAbs, *binaryPath)
 	suite.Results = append(suite.Results, coldStartResult)
 
 	// Extract cold start metrics from the result
@@ -115,7 +116,7 @@ func main() {
 			log.Printf("   ⚠️  Cold start complete! No break-even point (MCP not faster than CLI for this operation)")
 		}
 	} else {
-		log.Printf("   ❌ Cold start benchmark failed: %s", coldStartResult.Error)
+		log.Fatalf("   ❌ Cold start benchmark failed: %s\nAborting benchmark suite.", coldStartResult.Error)
 	}
 
 	// Start MCP server for warm benchmarks
@@ -141,9 +142,31 @@ func main() {
 	// Validate results
 	log.Println("\n🔍 Validating benchmark results...")
 	warnings := validateBenchmarkResults(suite)
-	if len(warnings) > 0 {
+
+	// Separate critical failures from warnings
+	var criticalFailures []string
+	var nonCriticalWarnings []string
+	for _, w := range warnings {
+		if strings.Contains(w, "❌ Benchmark failed") {
+			criticalFailures = append(criticalFailures, w)
+		} else {
+			nonCriticalWarnings = append(nonCriticalWarnings, w)
+		}
+	}
+
+	// Fail fast on critical errors
+	if len(criticalFailures) > 0 {
+		log.Println("❌ Critical benchmark failures detected:")
+		for _, f := range criticalFailures {
+			log.Println("  ", f)
+		}
+		log.Fatalf("Aborting benchmark suite due to failures.")
+	}
+
+	// Show warnings but don't fail
+	if len(nonCriticalWarnings) > 0 {
 		log.Println("⚠️  Validation warnings:")
-		for _, w := range warnings {
+		for _, w := range nonCriticalWarnings {
 			log.Println("  ", w)
 		}
 	} else {

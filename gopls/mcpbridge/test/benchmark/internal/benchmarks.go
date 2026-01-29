@@ -1020,34 +1020,96 @@ func compareGoBuild(ctx context.Context, session *mcp.ClientSession, projectDir 
 // BenchmarkColdStart performs a cold start analysis of the MCP server.
 // This measures the time from process start to first successful query,
 // then calculates the break-even point where MCP becomes faster than CLI.
-func BenchmarkColdStart(projectDir string) BenchmarkResult {
+func BenchmarkColdStart(projectDir string, binaryPath string) BenchmarkResult {
 	name := "Cold Start: Server to First Query"
 	category := "Cold Start"
 
-	// Get gopls directory ( Navigate from gopls/mcpbridge/test/benchmark to gopls)
-	goplsDir, err := filepath.Abs("../../..")
-	if err != nil {
-		return BenchmarkResult{
-			Name:     name,
-			Category: category,
-			Success:  false,
-			Error:    fmt.Sprintf("failed to get gopls directory: %v", err),
+	var goplsMcpPath string
+	var cleanupNeeded bool
+
+	// Use pre-built binary if provided, otherwise build a temp one
+	if binaryPath != "" {
+		// Verify the pre-built binary exists
+		if info, err := os.Stat(binaryPath); err != nil {
+			return BenchmarkResult{
+				Name:     name,
+				Category: category,
+				Success:  false,
+				Error:    fmt.Sprintf("pre-built binary not found: %v", err),
+			}
+		} else if info.Size() == 0 {
+			return BenchmarkResult{
+				Name:     name,
+				Category: category,
+				Success:  false,
+				Error:    fmt.Sprintf("pre-built binary is empty (0 bytes)"),
+			}
 		}
+		goplsMcpPath = binaryPath
+		cleanupNeeded = false
+	} else {
+		// Get gopls directory ( Navigate from gopls/mcpbridge/test/benchmark to gopls)
+		goplsDir, err := filepath.Abs("../../..")
+		if err != nil {
+			return BenchmarkResult{
+				Name:     name,
+				Category: category,
+				Success:  false,
+				Error:    fmt.Sprintf("failed to get gopls directory: %v", err),
+			}
+		}
+
+		// Build gopls-mcp to temp location
+		goplsMcpPath = filepath.Join(goplsDir, "goplsmcp-coldstart.tmp")
+		buildCmd := exec.Command("go", "build", "-o", goplsMcpPath, "./mcpbridge")
+		buildCmd.Dir = goplsDir
+
+		output, err := buildCmd.CombinedOutput()
+		if err != nil {
+			return BenchmarkResult{
+				Name:     name,
+				Category: category,
+				Success:  false,
+				Error:    fmt.Sprintf("failed to build gopls-mcp: %v\n%s", err, output),
+			}
+		}
+
+		// Verify the binary was created and is valid
+		info, statErr := os.Stat(goplsMcpPath)
+		if statErr != nil {
+			return BenchmarkResult{
+				Name:     name,
+				Category: category,
+				Success:  false,
+				Error:    fmt.Sprintf("binary not found after build: %v", statErr),
+			}
+		}
+
+		if info.Size() == 0 {
+			return BenchmarkResult{
+				Name:     name,
+				Category: category,
+				Success:  false,
+				Error:    "binary is empty (0 bytes) - build may have failed silently",
+			}
+		}
+
+		// Ensure the binary has execute permissions
+		if err := os.Chmod(goplsMcpPath, 0755); err != nil {
+			return BenchmarkResult{
+				Name:     name,
+				Category: category,
+				Success:  false,
+				Error:    fmt.Sprintf("failed to set executable permissions: %v", err),
+			}
+		}
+		cleanupNeeded = true
 	}
 
-	// Build gopls-mcp to temp location
-	goplsMcpPath := filepath.Join(goplsDir, "goplsmcp-coldstart.tmp")
-	buildCmd := exec.Command("go", "build", "-o", goplsMcpPath, "./mcpbridge")
-	buildCmd.Dir = goplsDir
-	if output, err := buildCmd.CombinedOutput(); err != nil {
-		return BenchmarkResult{
-			Name:     name,
-			Category: category,
-			Success:  false,
-			Error:    fmt.Sprintf("failed to build gopls-mcp: %v\n%s", err, output),
-		}
+	// Setup cleanup for temp binary
+	if cleanupNeeded {
+		defer os.Remove(goplsMcpPath)
 	}
-	defer os.Remove(goplsMcpPath)
 
 	// Measure time from process start to first successful query
 	serverStartTime := time.Now()
