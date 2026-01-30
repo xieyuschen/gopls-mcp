@@ -383,18 +383,34 @@ func handleGoDiagnostics(ctx context.Context, h *Handler, req *mcp.CallToolReque
 		ids = append(ids, id)
 	}
 
-	// Get diagnostics
+	// Get diagnostics (returns map[URI][]diagnostics)
 	reports, err := snapshot.PackageDiagnostics(ctx, ids...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("diagnostics failed: %v", err)
 	}
 
+	// Deduplicate diagnostics using native gopls hash
+	// This matches the exact deduplication behavior of native gopls
+	seen := make(map[string]struct{})
 	var diagnostics []api.Diagnostic
 	var summary strings.Builder
-	total := 0
+
+	// Iterate by file URI (like native gopls)
 	for _, diags := range reports {
+		if len(diags) == 0 {
+			continue
+		}
+
+		// Deduplicate and collect diagnostics for this file
 		for _, diag := range diags {
-			total++
+			// Use native gopls hash for exact deduplication matching
+			// Hash includes: Range, Severity, Source, Code, Message, Tags, Related, BundledFixes
+			key := diag.Hash().String()
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+
 			// Convert DiagnosticSeverity to string
 			severityStr := "Unknown"
 			switch diag.Severity {
@@ -412,7 +428,6 @@ func handleGoDiagnostics(ctx context.Context, h *Handler, req *mcp.CallToolReque
 			codeSnippet := ""
 			if fh, err := snapshot.ReadFile(ctx, diag.URI); err == nil {
 				if content, err := fh.Content(); err == nil && content != nil {
-					// Get the file content and extract the specific line
 					lines := strings.Split(string(content), "\n")
 					lineIdx := int(diag.Range.Start.Line)
 					if lineIdx >= 0 && lineIdx < len(lines) {
@@ -432,12 +447,12 @@ func handleGoDiagnostics(ctx context.Context, h *Handler, req *mcp.CallToolReque
 		}
 	}
 
-	if total == 0 {
+	// Format summary (per file, like native gopls)
+	if len(diagnostics) == 0 {
 		summary.WriteString(fmt.Sprintf("Workspace diagnostics checked for %d packages. No issues found.", len(ids)))
 	} else {
-		summary.WriteString(fmt.Sprintf("Found %d diagnostics in %d packages:\n", total, len(ids)))
+		summary.WriteString(fmt.Sprintf("Found %d unique diagnostic(s):\n", len(diagnostics)))
 		for _, diag := range diagnostics {
-			// Include code snippet in summary for better context
 			locInfo := fmt.Sprintf("%s:%d:%d", diag.File, diag.Line, diag.Column)
 			if diag.CodeSnippet != "" {
 				summary.WriteString(fmt.Sprintf("- %s: %s\n  Code: %s\n  [%s]\n", locInfo, diag.Message, diag.CodeSnippet, diag.Severity))
