@@ -1,10 +1,12 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import sitemap from '@astrojs/sitemap';
 import { pluginCollapsibleSections } from '@expressive-code/plugin-collapsible-sections';
 
 export default defineConfig({
-	site: 'https://github.com/xieyuschen/gopls-mcp',
+	site: 'https://gopls-mcp.org',
 	integrations: [
+		sitemap(),
 		starlight({
 			title: 'gopls-mcp',
 			description: 'Semantic Go code understanding for AI assistants',
