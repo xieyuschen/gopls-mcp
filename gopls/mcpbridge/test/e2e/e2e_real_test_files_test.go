@@ -103,7 +103,7 @@ func TestRealTestFiles_NavigateTestCode(t *testing.T) {
 		lines := strings.Split(string(content), "\n")
 		var lineNum int
 		var testName string
-			for i, line := range lines {
+		for i, line := range lines {
 			if strings.Contains(line, "func TestStdlib") {
 				lineNum = i + 1
 				// Extract function name (stop at opening parenthesis)
@@ -127,7 +127,6 @@ func TestRealTestFiles_NavigateTestCode(t *testing.T) {
 			t.Skip("Could not find TestStdlib function")
 			return
 		}
-
 
 		// Test go_definition
 		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{

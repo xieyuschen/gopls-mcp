@@ -199,10 +199,10 @@ func main() {
 		// Find what interfaces MyReader implements
 		args := map[string]any{
 			"locator": map[string]any{
-				"symbol_name":  "MyReader",
-				"context_file": mainGoPath,
+				"symbol_name":        "MyReader",
+				"context_file":       mainGoPath,
 				"package_identifier": "main",
-				"line_hint":    8,
+				"line_hint":          8,
 			},
 		}
 
@@ -291,10 +291,10 @@ func main() {
 		// Find implementations of Write method
 		args := map[string]any{
 			"locator": map[string]any{
-				"symbol_name":  "Write",
-				"context_file": mainGoPath,
+				"symbol_name":        "Write",
+				"context_file":       mainGoPath,
 				"package_identifier": "main",
-				"line_hint":    7,
+				"line_hint":          7,
 			},
 		}
 
