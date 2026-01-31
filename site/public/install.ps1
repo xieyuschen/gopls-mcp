@@ -1,6 +1,6 @@
 # gopls-mcp installer for Windows
-# Usage: irm https://raw.githubusercontent.com/[username]/gopls-mcp/main/scripts/install.ps1 | iex
-# Or: PowerShell -ExecutionPolicy Bypass -File .\install.ps1
+# Usage: irm https://gopls-mcp.org/install.ps1 | iex
+#        $env:GOPLS_MCP_VERSION='v1.0.0'; irm https://gopls-mcp.org/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 
@@ -25,24 +25,39 @@ function Write-Error-Exit {
 
 # Detect architecture
 function Get-Architecture {
-    $arch = [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture
-    switch ($arch) {
-        "X64" { return "amd64" }
-        "Arm64" { return "arm64" }
-        default { Write-Error-Exit "Unsupported architecture: $arch" }
+    # Use PROCESSOR_ARCHITECTURE environment variable (more compatible)
+    $procArch = $env:PROCESSOR_ARCHITECTURE
+
+    # Check if we're running in 32-bit mode on 64-bit Windows (WOW64)
+    if ($env:PROCESSOR_ARCHITEW6432) {
+        $procArch = $env:PROCESSOR_ARCHITEW6432
+    }
+
+    switch ($procArch) {
+        "AMD64" { return "amd64" }
+        "ARM64" { return "arm64" }
+        default { Write-Error-Exit "Unsupported architecture: $procArch" }
     }
 }
 
 # Get latest release version
 function Get-LatestVersion {
-    Write-Info "Fetching latest release version..."
+    if ($env:GOPLS_MCP_VERSION) {
+        $version = $env:GOPLS_MCP_VERSION
+        Write-Info "Using specified version: $version"
+        return $version
+    }
+
+    $apiUrl = "https://api.github.com/repos/$Repo/releases/latest"
+    Write-Info "Fetching latest release from GitHub API..."
+    Write-Host "  -> GET $apiUrl"
 
     try {
-        $response = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest"
+        $response = Invoke-RestMethod -Uri $apiUrl
         $version = $response.tag_name
 
         if ([string]::IsNullOrEmpty($version)) {
-            Write-Error-Exit "Failed to fetch latest version"
+            Write-Error-Exit "Failed to extract version from GitHub response"
         }
 
         Write-Info "Latest version: $version"
@@ -71,20 +86,25 @@ function Get-InstallDir {
 function Download-AndInstall {
     param([string]$Version, [string]$InstallDir, [string]$Arch)
 
-    $filename = "${Name}_${Version}_windows_${Arch}"
+    # Remove 'v' prefix from Version for filename (GoReleaser convention)
+    # e.g., v1.0.0 -> 1.0.0
+    $cleanVersion = $Version -replace '^v', ''
+    $filename = "${Name}_${cleanVersion}_windows_${Arch}"
     $url = "https://github.com/${Repo}/releases/download/${Version}/${filename}.zip"
     $tempFile = Join-Path $env:TEMP "${filename}.zip"
 
-    Write-Info "Downloading from: $url"
+    Write-Info "Downloading release binary..."
+    Write-Host "  -> GET $url"
 
     try {
         Invoke-WebRequest -Uri $url -OutFile $tempFile -UseBasicParsing
+
+        $fileSize = (Get-Item $tempFile).Length
+        Write-Info "Downloaded $($fileSize / 1KB) KB, extracting..."
     }
     catch {
-        Write-Error-Exit "Failed to download binary: $_"
+        Write-Error-Exit "Failed to download. Verify the release exists at: https://github.com/${Repo}/releases/tag/${Version}"
     }
-
-    Write-Info "Extracting and installing..."
 
     # Create temp directory for extraction
     $tempExtract = Join-Path $env:TEMP "gopls-mcp-extract"
@@ -105,7 +125,7 @@ function Download-AndInstall {
         $destPath = Join-Path $InstallDir "${Name}.exe"
         Copy-Item -Path $binaryPath -Destination $destPath -Force
 
-        Write-Info "Installed to: $destPath"
+        Write-Info "Installed: $destPath"
     }
     finally {
         # Cleanup

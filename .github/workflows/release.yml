@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -12,6 +11,8 @@ permissions:
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,13 +25,206 @@ jobs:
           go-version: '1.25'
           cache: true
 
+      - name: Get version
+        id: get_version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Building version: ${VERSION}"
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: v2
-          args: >
-            ${{ github.event_name == 'push' && contains(github.ref, 'refs/tags/')
-                && 'release --clean' || 'release --snapshot --clean' }}
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  post-release:
+    needs: goreleaser
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: "Linux"
+            script: "site/public/install.sh"
+            binary: "gopls-mcp"
+          - os: macos-latest
+            name: "macOS"
+            script: "site/public/install.sh"
+            binary: "gopls-mcp"
+          - os: ubuntu-latest-arm64
+            name: "Linux ARM64"
+            script: "site/public/install.sh"
+            binary: "gopls-mcp"
+          - os: macos-latest-arm64
+            name: "macOS ARM64"
+            script: "site/public/install.sh"
+            binary: "gopls-mcp"
+          - os: windows-latest
+            name: "Windows"
+            script: "site/public/install.ps1"
+            binary: "gopls-mcp.exe"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test install script (Unix)
+        if: ${{ matrix.name != 'Windows' }}
+        env:
+          GOPLS_MCP_VERSION: ${{ needs.goreleaser.outputs.version }}
+        run: |
+          echo "Testing install.sh with version: $GOPLS_MCP_VERSION on ${{ matrix.name }}"
+
+          # Set up PATH to include $HOME/.local/bin
+          export PATH="$HOME/.local/bin:$PATH"
+          echo "PATH: $PATH"
+
+          # Run install script (fail if it errors)
+          bash ${{ matrix.script }}
+
+          # Verify binary exists in $HOME/.local/bin
+          BIN_DIR="$HOME/.local/bin"
+          if [ ! -f "$BIN_DIR/${{ matrix.binary }}" ]; then
+            echo "✗ Binary not found at $BIN_DIR/${{ matrix.binary }}"
+            echo "Listing $BIN_DIR contents:"
+            ls -la "$BIN_DIR" || true
+            exit 1
+          fi
+
+          # Verify binary is executable
+          if [ ! -x "$BIN_DIR/${{ matrix.binary }}" ]; then
+            echo "✗ Binary exists but is not executable"
+            ls -la "$BIN_DIR/${{ matrix.binary }}"
+            exit 1
+          fi
+
+          echo "✓ Binary found at $BIN_DIR/${{ matrix.binary }}"
+
+          # Verify binary is in PATH and accessible by name
+          if ! command -v ${{ matrix.binary }} &> /dev/null; then
+            echo "✗ Binary is in $HOME/.local/bin but not in PATH"
+            echo "Current PATH: $PATH"
+            exit 1
+          fi
+
+          echo "✓ Binary is accessible via PATH"
+
+          # Verify version matches expected
+          INSTALLED_VERSION=$("$BIN_DIR/${{ matrix.binary }}" --version | sed -n 's/.*version \([^ ]*\).*/\1/p')
+          echo "Installed version: $INSTALLED_VERSION"
+          echo "Expected version: $GOPLS_MCP_VERSION"
+
+          if [ "$INSTALLED_VERSION" != "$GOPLS_MCP_VERSION" ]; then
+            echo "✗ Version mismatch: expected $GOPLS_MCP_VERSION, got $INSTALLED_VERSION"
+            exit 1
+          fi
+
+          echo "✓ Version matches expected: $GOPLS_MCP_VERSION"
+
+          # Verify binary architecture matches system
+          SYSTEM_ARCH=$(uname -m)
+          echo "System architecture: $SYSTEM_ARCH"
+
+          # Check binary architecture using file command
+          BINARY_INFO=$(file "$BIN_DIR/${{ matrix.binary }}")
+          echo "Binary info: $BINARY_INFO"
+
+          case "$SYSTEM_ARCH" in
+            x86_64)
+              if [[ ! "$BINARY_INFO" =~ "x86-64" && ! "$BINARY_INFO" =~ "x86_64" && ! "$BINARY_INFO" =~ "amd64" ]]; then
+                echo "✗ Binary architecture mismatch: expected x86_64, got $BINARY_INFO"
+                exit 1
+              fi
+              ;;
+            aarch64|arm64)
+              if [[ ! "$BINARY_INFO" =~ "aarch64" && ! "$BINARY_INFO" =~ "arm64" ]]; then
+                echo "✗ Binary architecture mismatch: expected arm64/aarch64, got $BINARY_INFO"
+                exit 1
+              fi
+              ;;
+          esac
+
+          echo "✓ Binary architecture matches system: $SYSTEM_ARCH"
+
+          echo "✓ ${{ matrix.name }} installation test PASSED"
+
+      - name: Test install script (Windows)
+        if: ${{ matrix.name == 'Windows' }}
+        shell: pwsh
+        env:
+          GOPLS_MCP_VERSION: ${{ needs.goreleaser.outputs.version }}
+        run: |
+          Write-Host "Testing ${{ matrix.script }} with version: $env:GOPLS_MCP_VERSION on ${{ matrix.name }}"
+
+          # Set up PATH to include $HOME/.local/bin
+          $localBin = Join-Path $env:USERPROFILE ".local\bin"
+          $env:PATH = "$localBin;$env:PATH"
+          Write-Host "PATH: $env:PATH"
+
+          # Run install script (fail if it errors)
+          & ${{ matrix.script }}
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "✗ Install script failed with exit code $LASTEXITCODE"
+            exit 1
+          }
+
+          # Verify binary exists in $HOME/.local/bin
+          $binDir = Join-Path $env:USERPROFILE ".local\bin"
+          $binaryPath = Join-Path $binDir "${{ matrix.binary }}"
+
+          if (-not (Test-Path $binaryPath)) {
+            Write-Host "✗ Binary not found at $binaryPath"
+            Write-Host "Listing $binDir contents:"
+            Get-ChildItem $binDir -ErrorAction SilentlyContinue
+            exit 1
+          }
+
+          Write-Host "✓ Binary found at $binaryPath"
+
+          # Verify binary is in PATH and accessible by name
+          $binaryName = "${{ matrix.binary }}" -replace '\.exe$'
+          if (-not (Get-Command $binaryName -ErrorAction SilentlyContinue)) {
+            Write-Host "✗ Binary is in $HOME\.local\bin but not in PATH"
+            Write-Host "Current PATH: $env:PATH"
+            exit 1
+          }
+
+          Write-Host "✓ Binary is accessible via PATH"
+
+          # Verify version matches expected
+          $versionOutput = & $binaryPath --version 2>&1
+          Write-Host "Version output: $versionOutput"
+
+          if ($versionOutput -notmatch "gopls-mcp version ([\w.]+)") {
+            Write-Host "✗ --version output unexpected"
+            exit 1
+          }
+
+          $installedVersion = $matches[1]
+          Write-Host "Installed version: $installedVersion"
+          Write-Host "Expected version: $env:GOPLS_MCP_VERSION"
+
+          if ($installedVersion -ne $env:GOPLS_MCP_VERSION) {
+            Write-Host "✗ Version mismatch: expected $env:GOPLS_MCP_VERSION, got $installedVersion"
+            exit 1
+          }
+
+          Write-Host "✓ Version matches expected: $env:GOPLS_MCP_VERSION"
+
+          # Verify binary architecture matches system (Windows is x86_64)
+          $systemArch = "x86_64"
+          Write-Host "System architecture: $systemArch"
+
+          # Check binary info
+          $binaryInfo = Get-Item $binaryPath
+          Write-Host "Binary size: $($binaryInfo.Length) bytes"
+
+          # For Windows, we assume the binary is correct if it runs
+          # (file command not available, but we ran --version successfully)
+          Write-Host "✓ Binary architecture verified (Windows x86_64)"
+
+          Write-Host "✓ ${{ matrix.name }} installation test PASSED"

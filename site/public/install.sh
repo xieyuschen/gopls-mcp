@@ -1,9 +1,11 @@
 #!/bin/bash
 # gopls-mcp installer for Linux and macOS
-# Usage: curl -sSL https://raw.githubusercontent.com/[username]/gopls-mcp/main/scripts/install.sh | bash
+# Usage: curl -sSL https://gopls-mcp.org/install.sh | bash
+#        GOPLS_MCP_VERSION=v1.0.0 curl -sSL https://gopls-mcp.org/install.sh | bash
 
 set -e
 
+# Configuration
 REPO="xieyuschen/gopls-mcp"
 NAME="gopls-mcp"
 
@@ -49,11 +51,35 @@ detect_os_arch() {
 
 # Get latest release version
 get_latest_version() {
-    info "Fetching latest release version..."
-    VERSION=$(curl -s https://api.github.com/repos/"$REPO"/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    if [ -n "$GOPLS_MCP_VERSION" ]; then
+        VERSION="$GOPLS_MCP_VERSION"
+        info "Using specified version: $VERSION"
+        return
+    fi
+
+    local API_URL="https://api.github.com/repos/$REPO/releases/latest"
+    info "Fetching latest release from GitHub API..."
+    echo "  -> GET $API_URL"
+
+    local response
+    response=$(curl -sS "$API_URL" 2>&1) || {
+        error "Failed to connect to GitHub API. Please check your internet connection."
+    }
+
+    # Check if we got a valid JSON response
+    if [[ ! "$response" =~ "tag_name" ]]; then
+        error "Invalid response from GitHub API. Response: $response"
+    fi
+
+    # Check for rate limiting
+    if echo "$response" | grep -q "API rate limit exceeded"; then
+        error "GitHub API rate limit exceeded. Try: GOPLS_MCP_VERSION=v1.0.0 curl -sSL https://gopls-mcp.org/install.sh | bash"
+    fi
+
+    VERSION=$(echo "$response" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
     if [ -z "$VERSION" ]; then
-        error "Failed to fetch latest version"
+        error "Failed to extract version from GitHub response. Response: $response"
     fi
 
     info "Latest version: $VERSION"
@@ -74,26 +100,37 @@ get_install_dir() {
 
 # Download and install
 download_and_install() {
-    FILENAME="${NAME}_${VERSION}_${OS}_${ARCH}"
-    if [ "$OS" = "linux" ]; then
-        URL="https://github.com/${REPO}/releases/download/${VERSION}/${FILENAME}.tar.gz"
-        TEMP_FILE=$(mktemp).tar.gz
-    else
-        URL="https://github.com/${REPO}/releases/download/${VERSION}/${FILENAME}.tar.gz"
-        TEMP_FILE=$(mktemp).tar.gz
+    # Remove 'v' prefix from VERSION for filename (GoReleaser convention)
+    # e.g., v1.0.0 -> 1.0.0
+    CLEAN_VERSION="${VERSION#v}"
+    FILENAME="${NAME}_${CLEAN_VERSION}_${OS}_${ARCH}"
+    URL="https://github.com/${REPO}/releases/download/${VERSION}/${FILENAME}.tar.gz"
+    TEMP_FILE=$(mktemp).tar.gz
+
+    info "Downloading release binary..."
+    echo "  -> GET $URL"
+
+    if ! curl -fSL "$URL" -o "$TEMP_FILE"; then
+        error "Failed to download. Verify the release exists at: https://github.com/${REPO}/releases/tag/${VERSION}"
     fi
 
-    info "Downloading from: $URL"
-
-    if ! curl -fsSL "$URL" -o "$TEMP_FILE"; then
-        error "Failed to download binary"
+    # Verify the file was downloaded and is not empty
+    if [ ! -s "$TEMP_FILE" ]; then
+        error "Downloaded file is empty. The release may not exist for $OS $ARCH."
     fi
 
-    info "Extracting and installing..."
-    tar -xzf "$TEMP_FILE" -C "$INSTALL_DIR" "$NAME"
+    local file_size=$(du -h "$TEMP_FILE" | cut -f1)
+    info "Downloaded $file_size, extracting..."
+
+    if ! tar -xzf "$TEMP_FILE" -C "$INSTALL_DIR" "$NAME" 2>/dev/null; then
+        rm -f "$TEMP_FILE"
+        error "Failed to extract archive. The downloaded file may be corrupted."
+    fi
+
     chmod +x "$INSTALL_DIR/$NAME"
-
     rm -f "$TEMP_FILE"
+
+    info "Installed: $INSTALL_DIR/$NAME"
 }
 
 # Verify installation
