@@ -319,4 +319,3 @@ type Package struct {
 	// Symbols is the list of exported symbols in the package.
 	Symbols []Symbol `json:"symbols,omitempty" jsonschema:"the symbols in a package"`
 }
-

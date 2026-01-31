@@ -136,7 +136,7 @@ func TestAllTools(t *testing.T) {
 					t.Errorf("Expected to find definition in gopls_wrappers.go, got: %s", content)
 				}
 			},
-			skip: handleGoDefLine == 0,
+			skip:       handleGoDefLine == 0,
 			skipReason: "Could not find handleGoDefinition function",
 		},
 		{
@@ -177,14 +177,14 @@ func TestAllTools(t *testing.T) {
 					"symbol_name":  "Handler",
 					"context_file": handlersPath,
 					// todo: this is wrong, we should test for interface.
-					"kind":         "struct",
-					"line_hint":    handlerStructLine,
+					"kind":      "struct",
+					"line_hint": handlerStructLine,
 				},
 			},
 			assertion: func(t *testing.T, content string) {
 				t.Log("go_implementation test completed (may not find implementations for struct)")
 			},
-			skip: handlerStructLine == 0,
+			skip:       handlerStructLine == 0,
 			skipReason: "Could not find Handler struct definition",
 		},
 		{
@@ -205,7 +205,7 @@ func TestAllTools(t *testing.T) {
 					t.Log("Known limitation: Searching from definition file")
 				}
 			},
-			skip: handlerStructLine == 0,
+			skip:       handlerStructLine == 0,
 			skipReason: "Could not find Handler struct definition",
 		},
 		{
@@ -225,7 +225,7 @@ func TestAllTools(t *testing.T) {
 					t.Errorf("Expected call hierarchy information, got: %s", content)
 				}
 			},
-			skip: handleGoDefLine == 0,
+			skip:       handleGoDefLine == 0,
 			skipReason: "Could not find handleGoDefinition function",
 		},
 		{

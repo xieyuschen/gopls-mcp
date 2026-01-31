@@ -16,12 +16,12 @@ import (
 
 // performanceTestCase defines a single performance test case
 type performanceTestCase struct {
-	name         string
-	tool         string
-	args         map[string]any
-	timeout      time.Duration
-	assertion    func(t *testing.T, content string, duration time.Duration)
-	description  string
+	name        string
+	tool        string
+	args        map[string]any
+	timeout     time.Duration
+	assertion   func(t *testing.T, content string, duration time.Duration)
+	description string
 }
 
 // TestPerformance_LargeFiles tests tool performance on large files
@@ -80,9 +80,9 @@ func runPerformanceTests(t *testing.T, testCases []performanceTestCase) {
 func TestPerformance_DeepAnalysis(t *testing.T) {
 	testCases := []performanceTestCase{
 		{
-			name:    "ListPackageSymbolsWithBodies",
-			tool:    "go_list_package_symbols",
-			args:    map[string]any{
+			name: "ListPackageSymbolsWithBodies",
+			tool: "go_list_package_symbols",
+			args: map[string]any{
 				"package_path":   "golang.org/x/tools/gopls/mcpbridge/core",
 				"include_docs":   true,
 				"include_bodies": true,
@@ -103,9 +103,9 @@ func TestPerformance_DeepAnalysis(t *testing.T) {
 			description: "List symbols with full function bodies",
 		},
 		{
-			name:    "DeepDependencyGraph",
-			tool:    "go_get_dependency_graph",
-			args:    map[string]any{
+			name: "DeepDependencyGraph",
+			tool: "go_get_dependency_graph",
+			args: map[string]any{
 				"package_path":       "golang.org/x/tools/gopls/mcpbridge/core",
 				"include_transitive": true,
 				"max_depth":          3,
@@ -206,9 +206,9 @@ func TestPerformance_BatchOperations(t *testing.T) {
 func TestPerformance_PackageAPI(t *testing.T) {
 	testCases := []performanceTestCase{
 		{
-			name:    "SinglePackageAPI",
-			tool:    "go_list_package_symbols",
-			args:    map[string]any{
+			name: "SinglePackageAPI",
+			tool: "go_list_package_symbols",
+			args: map[string]any{
 				"package_path":   "golang.org/x/tools/gopls/mcpbridge/core",
 				"include_docs":   true,
 				"include_bodies": false,
@@ -231,9 +231,9 @@ func TestPerformance_PackageAPI(t *testing.T) {
 			description: "Get API for a single package using list_package_symbols",
 		},
 		{
-			name:    "MultiplePackagesAPI",
-			tool:    "batch_package_api",
-			args:    map[string]any{
+			name: "MultiplePackagesAPI",
+			tool: "batch_package_api",
+			args: map[string]any{
 				"packages": []string{
 					"golang.org/x/tools/gopls/mcpbridge/core",
 					"golang.org/x/tools/gopls/mcpbridge/api",

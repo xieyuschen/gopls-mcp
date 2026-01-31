@@ -309,13 +309,13 @@ func FormatBytes(bytes uint64) string {
 // simpleBenchmarkCase defines a simple benchmark that calls a single MCP tool.
 // For complex benchmarks with comparisons or custom logic, use standalone functions.
 type simpleBenchmarkCase struct {
-	name         string
-	category     string
-	tool         string
-	args         func(projectDir string) map[string]any // Dynamic args based on projectDir
-	validate     func(content string) (items int, bytes int, err error)
-	skip         bool
-	skipReason   string
+	name       string
+	category   string
+	tool       string
+	args       func(projectDir string) map[string]any // Dynamic args based on projectDir
+	validate   func(content string) (items int, bytes int, err error)
+	skip       bool
+	skipReason string
 }
 
 // runSimpleBenchmark executes a single simple benchmark case.

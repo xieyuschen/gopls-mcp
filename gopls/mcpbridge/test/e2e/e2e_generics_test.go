@@ -115,7 +115,7 @@ func TestGenerics_BasicFunctions(t *testing.T) {
 			}
 
 			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-				Name:     tc.tool,
+				Name:      tc.tool,
 				Arguments: args,
 			})
 			if err != nil {
@@ -200,7 +200,7 @@ func TestGenerics_GenericTypes(t *testing.T) {
 			}
 
 			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-				Name:     tc.tool,
+				Name:      tc.tool,
 				Arguments: args,
 			})
 			if err != nil {
@@ -255,7 +255,7 @@ func TestGenerics_TypeInference(t *testing.T) {
 			args["Cwd"] = tmpDir
 
 			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-				Name:     tc.tool,
+				Name:      tc.tool,
 				Arguments: args,
 			})
 			if err != nil {
@@ -308,7 +308,7 @@ func TestGenerics_Constraints(t *testing.T) {
 			args["Cwd"] = tmpDir
 
 			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-				Name:     tc.tool,
+				Name:      tc.tool,
 				Arguments: args,
 			})
 			if err != nil {
@@ -346,7 +346,7 @@ func TestGenerics_RealWorldUsage(t *testing.T) {
 			}
 
 			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-				Name:     tc.tool,
+				Name:      tc.tool,
 				Arguments: tc.args,
 			})
 			if err != nil {
@@ -399,7 +399,7 @@ func TestGenerics_NestedGenerics(t *testing.T) {
 			args["Cwd"] = tmpDir
 
 			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-				Name:     tc.tool,
+				Name:      tc.tool,
 				Arguments: args,
 			})
 			if err != nil {

@@ -593,8 +593,8 @@ func main() {
 
 		// Should indicate no symbols found or empty result
 		if !strings.Contains(content, "No symbols found") &&
-		   !strings.Contains(content, "no symbols") &&
-		   !strings.Contains(content, "0 symbols") {
+			!strings.Contains(content, "no symbols") &&
+			!strings.Contains(content, "0 symbols") {
 			t.Logf("Note: Result for non-existent symbol: %s", content)
 		}
 	})

@@ -86,14 +86,14 @@ const (
 	GoldenDependencyGraphTransitive   = "go_get_dependency_graph_transitive_dependencies.golden"
 
 	// Diagnostics Tool (go_build_check)
-	GoldenDiagnostics                    = "go_build_check_e2e.golden"
-	GoldenDiagnosticsCleanProject        = "go_build_check_clean_project.golden"
-	GoldenDiagnosticsSyntaxError         = "go_build_check_syntax_error.golden"
-	GoldenDiagnosticsTypeError           = "go_build_check_type_error.golden"
-	GoldenDiagnosticsImportError         = "go_build_check_import_error.golden"
-	GoldenDiagnosticsUnusedVariable      = "go_build_check_unused_variable.golden"
-	GoldenDiagnosticsDeduplication       = "go_build_check_deduplication.golden"
-	GoldenDiagnosticsTests               = "go_build_check_test_files_e2e.golden"
+	GoldenDiagnostics               = "go_build_check_e2e.golden"
+	GoldenDiagnosticsCleanProject   = "go_build_check_clean_project.golden"
+	GoldenDiagnosticsSyntaxError    = "go_build_check_syntax_error.golden"
+	GoldenDiagnosticsTypeError      = "go_build_check_type_error.golden"
+	GoldenDiagnosticsImportError    = "go_build_check_import_error.golden"
+	GoldenDiagnosticsUnusedVariable = "go_build_check_unused_variable.golden"
+	GoldenDiagnosticsDeduplication  = "go_build_check_deduplication.golden"
+	GoldenDiagnosticsTests          = "go_build_check_test_files_e2e.golden"
 
 	// Read File Tool (go_read_file)
 	GoldenReadFile                  = "go_read_file_e2e.golden"
@@ -103,17 +103,17 @@ const (
 	GoldenReadFileLarge             = "go_read_file_large.golden"
 
 	// Rename Symbol Tool (go_dryrun_rename_symbol)
-	GoldenRenameSymbolStrong         = "go_dryrun_rename_symbol_strong.golden"
-	GoldenRenameSymbolExact          = "go_dryrun_rename_symbol_exact_count.golden"
-	GoldenRenameSymbolMultiFile      = "go_dryrun_rename_symbol_multi_file.golden"
-	GoldenRenameSymbolType           = "go_dryrun_rename_symbol_type.golden"
+	GoldenRenameSymbolStrong    = "go_dryrun_rename_symbol_strong.golden"
+	GoldenRenameSymbolExact     = "go_dryrun_rename_symbol_exact_count.golden"
+	GoldenRenameSymbolMultiFile = "go_dryrun_rename_symbol_multi_file.golden"
+	GoldenRenameSymbolType      = "go_dryrun_rename_symbol_type.golden"
 
 	// Search Tool (go_search)
-	GoldenSearch               = "go_search_e2e.golden"
-	GoldenSearchTests          = "go_search_test_files_e2e.golden"
-	GoldenSearchTestFunctions  = "go_search_test_functions.golden"
+	GoldenSearch                = "go_search_e2e.golden"
+	GoldenSearchTests           = "go_search_test_files_e2e.golden"
+	GoldenSearchTestFunctions   = "go_search_test_functions.golden"
 	GoldenSearchTestDefinitions = "go_search_test_definitions.golden"
-	GoldenSearchCrossFile      = "go_search_cross_file.golden"
+	GoldenSearchCrossFile       = "go_search_cross_file.golden"
 
 	// ===== Corner Cases & Special Scenarios =====
 	// These tests don't directly correspond to a single MCP tool

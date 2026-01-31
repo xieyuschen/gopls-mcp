@@ -168,10 +168,10 @@ func TestGoDefinitionE2E_Strong(t *testing.T) {
 		tool := "go_definition"
 		args := map[string]any{
 			"locator": map[string]any{
-				"symbol_name":  "Println",
-				"context_file": filepath.Join(projectDir, "main.go"),
+				"symbol_name":        "Println",
+				"context_file":       filepath.Join(projectDir, "main.go"),
 				"package_identifier": "fmt",
-				"line_hint":    27, // approximate line where fmt is used
+				"line_hint":          27, // approximate line where fmt is used
 			},
 		}
 
