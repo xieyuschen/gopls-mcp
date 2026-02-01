@@ -884,12 +884,18 @@ func handleGoReadFile(ctx context.Context, h *Handler, req *mcp.CallToolRequest,
 	totalLines := len(strings.Split(fullContent, "\n"))
 	totalBytes := len(contentBytes)
 
+	// Determine starting line (1-indexed, default to 1 if not specified or invalid)
+	startLine := input.Offset
+	if startLine < 1 {
+		startLine = 1
+	}
+
 	// Apply truncation limits
 	truncatedContent, _, truncationErr := TruncateFileContent(
 		fullContent,
 		input.MaxBytes,
 		input.MaxLines,
-		1, // Always start from line 1
+		startLine,
 	)
 
 	// Build the result with truncated content
@@ -904,8 +910,14 @@ func handleGoReadFile(ctx context.Context, h *Handler, req *mcp.CallToolRequest,
 	if truncationErr != "" {
 		summaryMsg = fmt.Sprintf("Read %s: %s", input.File, truncationErr)
 	} else {
-		summaryMsg = fmt.Sprintf("Read %s (%d bytes, %d lines)",
-			input.File, totalBytes, totalLines)
+		// Include offset information if starting from a line other than 1
+		if startLine > 1 {
+			summaryMsg = fmt.Sprintf("Read %s from line %d (%d bytes, %d total lines)",
+				input.File, startLine, totalBytes, totalLines)
+		} else {
+			summaryMsg = fmt.Sprintf("Read %s (%d bytes, %d lines)",
+				input.File, totalBytes, totalLines)
+		}
 	}
 
 	// Build display content
@@ -1176,6 +1188,18 @@ func getToolSchemas(toolName string) map[string]map[string]any {
 				"file": map[string]any{
 					"type":        "string",
 					"description": "File path",
+				},
+				"max_bytes": map[string]any{
+					"type":        "integer",
+					"description": "Maximum bytes to return (0 = unlimited)",
+				},
+				"max_lines": map[string]any{
+					"type":        "integer",
+					"description": "Maximum lines to return (0 = unlimited)",
+				},
+				"offset": map[string]any{
+					"type":        "integer",
+					"description": "Starting line number (1-indexed, default: 1)",
 				},
 			},
 		}

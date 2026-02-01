@@ -198,6 +198,8 @@ type IReadFileParams struct {
 	MaxBytes int `json:"max_bytes,omitempty" jsonschema:"maximum bytes to return (default: 0 = unlimited)"`
 	// MaxLines limits the number of lines returned. If 0 or not set, returns all content.
 	MaxLines int `json:"max_lines,omitempty" jsonschema:"maximum lines to return (default: 0 = unlimited)"`
+	// Offset specifies the starting line number (1-indexed). If 0 or not set, starts from line 1.
+	Offset int `json:"offset,omitempty" jsonschema:"starting line number (1-indexed, default: 1)"`
 }
 
 // OReadFileResult is the output for go_read_file tool.

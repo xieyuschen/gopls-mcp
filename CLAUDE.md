@@ -6,11 +6,63 @@
 
 ## ⚡ Critical Protocol: Semantic vs. Text Search
 
-**Core Philosophy: Always use semantic analysis tools instead of text search (grep/ripgrep) for Go code.**
+**Core Philosophy: gopls-mcp is a Symbol Indexer, NOT a Semantic Search Engine.**
+You are interacting with a strict code analysis tool, not a natural language search engine.
+
+**Strict Rule for `go_search`:**
+The `query` argument MUST be a specific symbol name (e.g., "LoopVar", "PosBase").
+*   ❌ **Forbidden:** `go_search("function that handles loop variables")` (Do NOT use sentences or spaces)
+*   ❌ **Forbidden:** `go_search("syntax.File.Pos PosBase")` (Do NOT combine multiple concepts)
+*   ✅ **Correct:** `go_search("LoopVar")` -> then analyze results.
+
+## 🔍 `go_search`: What It Searches
+
+**⚠️ CRITICAL: What `go_search` CANNOT Search**
+
+Before using `go_search`, understand what it CANNOT do:
+- ❌ **Cannot search string literals**: `"Hello World"`, `"error:"` in comments
+- ❌ **Cannot search comments**: `// TODO: fix this`, `// This is a bug`
+- ❌ **Cannot search documentation content**: Only searches symbol names
+- ❌ **Cannot search code patterns**: "for loops", "if statements", "struct definitions"
+- ❌ **Cannot search by semantic meaning**: "functions that handle HTTP", "error handling code"
+- ❌ **Cannot search local variables**: `func f() { x := 1 }` - won't find "x"
+
+`go_search` ONLY searches **top-level symbol identifiers** (function names, type names, variable names, struct fields, function parameters).
+
+If you need to search for **text content**, use:
+- `go_read_file` + manual text search to read files and search for strings
+- `go_build_check` to find compilation errors (which show problematic code)
+- Your IDE's search functionality (Ctrl+F) for text search
+
+`go_search` searches symbol names with fuzzy matching. **Struct fields and function parameters are included by default.**
+
+### What `go_search` Covers
+
+**Top-Level Declarations (included):**
+- ✅ Top-level functions: `func MyFunction()`
+- ✅ Top-level types: `type MyStruct`, `type MyInterface`
+- ✅ Top-level variables: `var MyVar`, `const MyConst`
+- ✅ Methods: `func (s *Server) Start()`
+- ✅ Packages: `package http`
+- ✅ **Struct fields**: `type Server { Name string }` - finds "Name"
+- ✅ **Function parameters**: `func Handle(ctx context.Context)` - finds "ctx"
+- ✅ Interface methods
+- ✅ Named return values: `func f() (err error)` - finds "err"
+
+**NOT Included (local scope only):**
+- ❌ Local variables in function bodies: `func f() { x := 1 }`
+- ❌ Range variables: `for i, v := range`
+
+**Performance:** Fast (~50-150ms)
+
+**Example:**
+```json
+{"query": "Name"}  // Finds struct fields, parameters, top-level symbols named "Name"
+```
 
 | User Intent | ✅ Tool to Use | ❌ Forbidden Command |
 |-------------|----------------|----------------------|
-| **Find a symbol by name** | `go_search("Name")` (Fuzzy matches!) | `grep "Name"`, `grep "func Name"` |
+| **Find a symbol by name** | `go_search("Name")` (Strictly single token!) | `go_search("find function X")`, `grep` |
 | **Find usages/references** | `go_symbol_references` | `grep -r "Name" .` |
 | **Find definition/signature** | `go_definition` | `grep`, `cat file.go` (just to find loc) |
 | **List package symbols** | `go_list_package_symbols` | `ls`, `find`, reading full files |
@@ -25,6 +77,16 @@
 2. **Never read full files just to find signatures or definitions.**
 3. **Never use `go build` for checking errors (use `go_build_check`).**
 4. **Ambiguity Handling:** If the user asks for a definition (e.g., "How does X work?") but you do not know which file X is in, you MUST use `go_search` first to locate it, and THEN use `go_definition` or `go_read_file` on the specific result. Do not guess file paths.
+
+## 🧭 Recommended Investigation Workflow
+
+1.  **Global Search (If location unknown):** Use `go_search("KnownSymbolName")` to find the file.
+    *   *Tip:* If `go_search("LongSpecificName")` fails, try `go_search("SpecificName")`. Never add spaces.
+2.  **Package Exploration (If context needed):** Once a file is found, use `go_list_package_symbols` on its package to see available tools/structs.
+3.  **Deep Dive:** Use `go_read_file` or `go_definition` on specific targets found in step 2.
+4.  **Trace:** Use `go_symbol_references` to see how it's used.
+
+**Note:** If `go_search` returns nothing, do NOT fall back to `grep`. Try a shorter, simpler symbol name (e.g., instead of `DebugFlags.LoopVar`, try `LoopVar`).
 
 ## 🛠 Tool Reference
 
@@ -44,7 +106,7 @@
 
 - **go_list_package_symbols**: List all exported symbols (types, functions, constants, variables) in a package.
 
-- **go_search**: Find symbols (functions, types, constants) by name with fuzzy matching.
+- **go_search**: Search symbols by name with fuzzy matching.
 
 ### Reading & Understanding
 
@@ -128,15 +190,65 @@ go_list_package_symbols(
 → Returns: All exported symbols with signatures and docs
 ```
 
-### Example 4: Finding Related Functions
+### Example 4: Searching for Text Content (WRONG TOOL)
 ```
 ❌ BAD INTERACTION:
-User: "Find all functions related to formatting symbols"
-Assistant: [Uses Grep] → grep -rn "format.*Symbol"
+User: "Find all occurrences of 'TODO:' in comments"
+Assistant: [Attempts to use go_search]
+go_search(query="TODO:")
+→ Returns: "No symbols found" (Because go_search doesn't search comments!)
 
-✅ GOOD INTERACTION:
-User: "Find all functions related to formatting symbols"
-Assistant: [Uses go_search with fuzzy matching]
-go_search(query="formatSymbol")
-→ Returns: formatPackageSymbols, formatPackageSymbolDetail, FormatSymbolSummary
+❌ ANOTHER BAD INTERACTION:
+User: "Find the string 'error:' in log messages"
+Assistant: [Attempts to use go_search]
+go_search(query="error:")
+→ Returns: "No symbols found" (Because go_search doesn't search string literals!)
+
+✅ CORRECT APPROACH:
+User: "Find all 'TODO:' comments"
+Assistant: [Uses grep or IDE search - go_search is NOT for text]
+// Use: grep -r "TODO:" ./... or IDE's Ctrl+F search functionality
 ```
+
+### Example 5: Finding Related Functions (CORRECT USAGE)
+```
+❌ BAD INTERACTION (Natural Language Search):
+User: "Find the function that handles parsing of integer values"
+Assistant: [Uses go_search incorrectly]
+go_search(query="function that handles parsing of integer values")
+→ Returns: "No symbols found" (Because no symbol is named that sentence)
+
+✅ GOOD INTERACTION (Symbol Search):
+User: "Find the function that handles parsing of integer values"
+Assistant: [Uses go_search with a likely keyword]
+go_search(query="ParseInt")
+→ Returns: ParseInt, ParseInt64, TryParseInt
+```
+
+### Example 6: Finding Struct Fields (Default Search)
+```
+User: "Find the 'port' field in Server struct"
+Assistant: [Uses go_search with default mode]
+go_search(query="port")
+→ Returns:
+  - field port (in Server) at server.go:15
+  - param port (in function dial) at net.go:123
+
+Note: Struct fields and parameters are included by default.
+```
+
+### Example 7: Searching for Common Symbol Names
+
+When searching for common names that might appear in many places, `go_search` returns all matches:
+
+```
+User: "Find where symbol 'count' is used"
+Assistant: [Uses go_search with default mode]
+go_search(query="count")
+→ Returns:
+  - field count (in Counter) at counter.go:10
+  - param count (in function process) at handler.go:42
+  - (Note: Local variables are NOT included - use go_read_file to inspect function bodies)
+```
+
+**Important:** `go_search` does NOT include local variables in function bodies. To find local variables, read the specific file with `go_read_file` and search for the variable name manually.

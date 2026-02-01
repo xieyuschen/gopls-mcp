@@ -101,6 +101,8 @@ const (
 	GoldenReadFileSpecialCharacters = "go_read_file_special_characters.golden"
 	GoldenReadFileNonExistent       = "go_read_file_non_existent.golden"
 	GoldenReadFileLarge             = "go_read_file_large.golden"
+	GoldenReadFileOffset            = "go_read_file_offset.golden"
+	GoldenReadFileOffsetMaxLines    = "go_read_file_offset_maxlines.golden"
 
 	// Rename Symbol Tool (go_dryrun_rename_symbol)
 	GoldenRenameSymbolStrong    = "go_dryrun_rename_symbol_strong.golden"

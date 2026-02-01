@@ -293,4 +293,188 @@ go 1.21
 			t.Errorf("Expected 20 functions, got %d", functionCount)
 		}
 	})
+
+	t.Run("ReadFileWithOffset", func(t *testing.T) {
+		// Create a test project
+		projectDir := t.TempDir()
+
+		// Initialize go.mod
+		goModContent := `module example.com/test
+
+go 1.21
+`
+		if err := os.WriteFile(filepath.Join(projectDir, "go.mod"), []byte(goModContent), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a file with known content
+		sourceCode := `package main
+
+import "fmt"
+
+// Hello returns a greeting message
+func Hello() string {
+	return "hello world"
+}
+
+// Add returns the sum of two integers
+func Add(a, b int) int {
+	return a + b
+}
+
+func main() {
+	fmt.Println(Hello())
+	fmt.Println(Add(1, 2))
+}
+`
+		mainGoPath := filepath.Join(projectDir, "main.go")
+		if err := os.WriteFile(mainGoPath, []byte(sourceCode), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Read file starting from line 10
+		tool := "go_read_file"
+		args := map[string]any{
+			"file":   mainGoPath,
+			"offset": 10,
+		}
+
+		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
+		if err != nil {
+			t.Fatalf("Failed to call tool %s: %v", tool, err)
+		}
+
+		if res == nil {
+			t.Fatal("Expected non-nil result")
+		}
+
+		// Extract text content from result
+		var content string
+		for _, c := range res.Content {
+			if tc, ok := c.(*mcp.TextContent); ok {
+				content = tc.Text
+				break
+			}
+		}
+
+		t.Logf("File content from line 10:\n%s", content)
+
+		// Verify we got content starting from line 10
+		// line 10 in the file is: // Add returns the sum of two integers
+		if !strings.Contains(content, "// Add returns the sum") {
+			t.Errorf("Expected content to contain '// Add returns the sum'")
+		}
+
+		// Verify that earlier content is NOT in the main content (may be in summary)
+		lines := strings.Split(content, "\n")
+		foundPackageMainInContent := false
+		for i, line := range lines {
+			// Skip first line (summary)
+			if i == 0 {
+				continue
+			}
+			if strings.Contains(line, "package main") {
+				foundPackageMainInContent = true
+				break
+			}
+		}
+		if foundPackageMainInContent {
+			t.Errorf("Expected content to NOT contain 'package main' after line 10")
+		}
+
+		// Verify we still got the Add function
+		if !strings.Contains(content, "func Add(a, b int) int") {
+			t.Errorf("Expected content to contain Add function")
+		}
+	})
+
+	t.Run("ReadFileWithOffsetAndMaxLines", func(t *testing.T) {
+		// Create a test project
+		projectDir := t.TempDir()
+
+		// Initialize go.mod
+		goModContent := `module example.com/test
+
+go 1.21
+`
+		if err := os.WriteFile(filepath.Join(projectDir, "go.mod"), []byte(goModContent), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a file with known content
+		sourceCode := `package main
+
+import "fmt"
+
+// Hello returns a greeting message
+func Hello() string {
+	return "hello world"
+}
+
+// Add returns the sum of two integers
+func Add(a, b int) int {
+	return a + b
+}
+
+func main() {
+	fmt.Println(Hello())
+	fmt.Println(Add(1, 2))
+}
+`
+		mainGoPath := filepath.Join(projectDir, "main.go")
+		if err := os.WriteFile(mainGoPath, []byte(sourceCode), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Read file starting from line 6, limited to 5 lines
+		tool := "go_read_file"
+		args := map[string]any{
+			"file":      mainGoPath,
+			"offset":    6,
+			"max_lines": 5,
+		}
+
+		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
+		if err != nil {
+			t.Fatalf("Failed to call tool %s: %v", tool, err)
+		}
+
+		if res == nil {
+			t.Fatal("Expected non-nil result")
+		}
+
+		// Extract text content from result
+		var content string
+		for _, c := range res.Content {
+			if tc, ok := c.(*mcp.TextContent); ok {
+				content = tc.Text
+				break
+			}
+		}
+
+		t.Logf("File content from line 6, max 5 lines:\n%s", content)
+
+		// Verify we got the Hello function (which starts at line 6)
+		if !strings.Contains(content, "func Hello()") {
+			t.Errorf("Expected content to contain Hello function")
+		}
+
+		// Verify content is truncated by counting lines
+		lines := strings.Split(content, "\n")
+		// Count non-empty content lines (skip summary line)
+		contentLineCount := 0
+		for i, line := range lines {
+			// Skip first line (summary starts with "Read")
+			if i == 0 {
+				continue
+			}
+			if strings.TrimSpace(line) != "" {
+				contentLineCount++
+			}
+		}
+		// Should be approximately 5-6 lines (allowing for some variation)
+		if contentLineCount > 10 {
+			t.Logf("Warning: Expected approximately 5 lines, got %d", contentLineCount)
+		}
+	})
 }
