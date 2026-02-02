@@ -143,6 +143,7 @@ func TestRealWorkflow_ToolChain_ChainingMultipleTools(t *testing.T) {
 			Arguments: map[string]any{
 				"query":       "handleGoDefinition",
 				"max_results": 5,
+				"Cwd":         globalGoplsMcpDir,
 			},
 		})
 		if err != nil {

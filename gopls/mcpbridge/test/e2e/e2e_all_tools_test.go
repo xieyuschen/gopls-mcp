@@ -145,6 +145,7 @@ func TestAllTools(t *testing.T) {
 			args: map[string]any{
 				"query":       "Handler",
 				"max_results": 5,
+				"Cwd":         globalGoplsMcpDir,
 			},
 			assertion: func(t *testing.T, content string) {
 				if !strings.Contains(content, "Handler") {

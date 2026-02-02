@@ -161,6 +161,7 @@ func TestRefactoring_ExtractFunction(t *testing.T) {
 			Arguments: map[string]any{
 				"query":       "handleGoDefinition",
 				"max_results": 3,
+				"Cwd":         globalGoplsMcpDir,
 			},
 		})
 		if err != nil {
@@ -272,6 +273,7 @@ func TestRefactoring_InlineFunction(t *testing.T) {
 			Arguments: map[string]any{
 				"query":       "ResultText",
 				"max_results": 5,
+				"Cwd":         globalGoplsMcpDir,
 			},
 		})
 		if err != nil {

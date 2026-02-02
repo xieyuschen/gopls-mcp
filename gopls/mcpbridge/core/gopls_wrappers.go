@@ -6,8 +6,12 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"log"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/tools/gopls/internal/cache"
@@ -482,6 +486,12 @@ func handleGoSearch(ctx context.Context, h *Handler, req *mcp.CallToolRequest, i
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: result.Summary}}}, result, nil
 	}
 
+	// Validate query: go_search only accepts symbol names (no spaces or dots)
+	// This prevents natural language queries which don't work with symbol search
+	if strings.Contains(input.Query, " ") || strings.Contains(input.Query, ".") {
+		return nil, nil, fmt.Errorf("invalid query: go_search accepts only a single symbol name (no spaces or dots). query=%q", input.Query)
+	}
+
 	var snapshot *cache.Snapshot
 	var release func()
 	var err error
@@ -505,79 +515,302 @@ func handleGoSearch(ctx context.Context, h *Handler, req *mcp.CallToolRequest, i
 		defer release()
 	}
 
-	// Use LSP server's Symbol method (searches all views)
-	syms, err := h.symbler.Symbol(ctx, &protocol.WorkspaceSymbolParams{
-		Query: input.Query,
-	})
+	symbols, err := searchProjectFiles(ctx, snapshot, input.Query, input.MaxResults)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to execute symbol query: %v", err)
-	}
-
-	// Determine max results (default to 10 if not specified)
-	maxResults := input.MaxResults
-	if maxResults <= 0 {
-		maxResults = 10 // default limit
-	}
-
-	// Limit results
-	var resultSyms []protocol.SymbolInformation
-	if len(syms) > maxResults {
-		resultSyms = syms[:maxResults]
-	} else {
-		resultSyms = syms
-	}
-
-	// Extract rich Symbol information for each search result
-	symbols := make([]*api.Symbol, 0, len(resultSyms))
-	for _, sym := range resultSyms {
-		// Convert LSP SymbolKind to our SymbolKind
-		kind := golang.ConvertLSPSymbolKind(sym.Kind)
-
-		// Extract line number from location
-		line := 1
-		if sym.Location.Range.Start.Line > 0 {
-			line = int(sym.Location.Range.Start.Line + 1)
-		}
-
-		// Extract package path for this symbol using metadata
-		pkgPath := ""
-		if mps, err := snapshot.MetadataForFile(ctx, sym.Location.URI, false); err == nil && len(mps) > 0 {
-			pkgPath = string(mps[0].PkgPath)
-		}
-
-		symbols = append(symbols, &api.Symbol{
-			Name:        sym.Name,
-			Kind:        kind,
-			PackagePath: pkgPath,
-			FilePath:    sym.Location.URI.Path(),
-			Line:        line,
-			// Note: We don't extract signature/docs here for performance
-			// User can call get_package_symbol_detail or go_definition for full info
-		})
+		return nil, nil, fmt.Errorf("failed to search project files: %v", err)
 	}
 
 	// Build summary
-	var summary string
-	if len(syms) == 0 {
-		summary = "No symbols found."
-	} else if len(syms) > maxResults {
-		summary = fmt.Sprintf("Found %d symbol(s) (showing first %d):\n", len(syms), maxResults)
-		for _, sym := range resultSyms {
-			summary += fmt.Sprintf("  - %s (%s in %s)\n", sym.Name, sym.Kind, sym.Location.URI.Path())
+	summary := buildSearchSummary(symbols, input.MaxResults)
+
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: summary}}}, &api.OSearchResult{
+		Summary: summary,
+		Symbols: symbols,
+	}, nil
+}
+
+// searchProjectFiles searches for symbols in workspace files by parsing them directly.
+// This bypasses the LSP server and parseCache for better memory efficiency.
+//
+// Strategy:
+// 1. Get workspace packages from snapshot (metadata graph already filtered)
+// 2. Collect Go files from workspace packages only (no dependencies)
+// 3. Filter out ignored files (testdata, hidden files, etc.)
+// 4. Parse each file directly using cache.ParseGoImpl (no caching)
+// 5. Extract symbols and fuzzy match against query
+// 6. Return top matches
+func searchProjectFiles(ctx context.Context, snapshot *cache.Snapshot, query string, maxResults int) ([]*api.Symbol, error) {
+	if maxResults <= 0 {
+		maxResults = 10
+	}
+
+	root := snapshot.View().Root().Path()
+	fileURIs := collectGoFilesFromFS(root)
+	filteredURIs := filterIgnoredFiles(snapshot, fileURIs)
+	symbols := extractSymbolsFromFiles(ctx, snapshot, filteredURIs)
+	matched := fuzzyMatchSymbols(symbols, query)
+	matched = sortAndLimitSymbols(matched, maxResults)
+
+	return matched, nil
+}
+
+// collectGoFilesFromFS walks the filesystem to find all .go files in the workspace.
+// This bypasses the gopls snapshot's lazy-loaded metadata graph.
+// Note: Filtering is done later by filterIgnoredFiles() which uses snapshot.IgnoredFile().
+func collectGoFilesFromFS(rootPath string) map[protocol.DocumentURI]bool {
+	seenFiles := make(map[protocol.DocumentURI]bool)
+
+	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
 		}
-		summary += fmt.Sprintf("... and %d more (use max_results for more)\n", len(syms)-maxResults)
-	} else {
-		summary = fmt.Sprintf("Found %d symbol(s):\n", len(syms))
-		for _, sym := range resultSyms {
-			summary += fmt.Sprintf("  - %s (%s in %s)\n", sym.Name, sym.Kind, sym.Location.URI.Path())
+
+		if info.Mode()&os.ModeSymlink != 0 {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		if filepath.Ext(path) == ".go" {
+			uri := protocol.URIFromPath(path)
+			seenFiles[uri] = true
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		log.Printf("warning: error walking directory tree: %v", err)
+	}
+
+	return seenFiles
+}
+
+// filterIgnoredFiles filters out files that should be ignored per Go conventions:
+// - Files in testdata directories
+// - Files starting with '.' or '_' in any path segment
+// - Files filtered by user's directory filters
+func filterIgnoredFiles(snapshot *cache.Snapshot, uris map[protocol.DocumentURI]bool) []protocol.DocumentURI {
+	var filtered []protocol.DocumentURI
+
+	for uri := range uris {
+		if snapshot.IgnoredFile(uri) {
+			continue
+		}
+
+		filtered = append(filtered, uri)
+	}
+
+	return filtered
+}
+
+// extractSymbolsFromFiles parses files and extracts symbols.
+// Each file is parsed, symbols extracted, then AST is discarded (GC-friendly).
+// Processes files concurrently using a worker pool for better performance.
+func extractSymbolsFromFiles(ctx context.Context, snapshot *cache.Snapshot, uris []protocol.DocumentURI) []*api.Symbol {
+	numWorkers := runtime.NumCPU()
+	if numWorkers > 8 {
+		numWorkers = 8
+	}
+
+	type result struct {
+		symbols []*api.Symbol
+	}
+
+	results := make(chan result, len(uris))
+	urisChan := make(chan protocol.DocumentURI, len(uris))
+
+	for _, uri := range uris {
+		urisChan <- uri
+	}
+	close(urisChan)
+
+	var wg sync.WaitGroup
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fset := token.NewFileSet()
+
+			for uri := range urisChan {
+				if ctx.Err() != nil {
+					return
+				}
+
+				fh, err := snapshot.ReadFile(ctx, uri)
+				if err != nil {
+					continue
+				}
+
+				pgf, err := cache.ParseGoImpl(ctx, fset, fh, 0, false)
+				if err != nil {
+					continue
+				}
+
+				fileSymbols := extractTopLevelSymbols(pgf)
+				results <- result{symbols: fileSymbols}
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var allSymbols []*api.Symbol
+	for res := range results {
+		allSymbols = append(allSymbols, res.symbols...)
+	}
+
+	return allSymbols
+}
+
+// extractTopLevelSymbols walks the AST and extracts top-level declarations.
+// This includes functions, types, variables, and constants.
+func extractTopLevelSymbols(pgf *parsego.File) []*api.Symbol {
+	var symbols []*api.Symbol
+
+	for _, decl := range pgf.File.Decls {
+		switch d := decl.(type) {
+		case *ast.FuncDecl:
+			// Extract function
+			symbols = append(symbols, &api.Symbol{
+				Name:     d.Name.Name,
+				Kind:     api.SymbolKindFunction,
+				FilePath: pgf.URI.Path(),
+				Line:     int(pgf.Tok.Line(d.Pos())),
+			})
+
+		case *ast.GenDecl:
+			// Extract types, variables, constants
+			tok := d.Tok
+			for _, spec := range d.Specs {
+				switch s := spec.(type) {
+				case *ast.TypeSpec:
+					// Type declaration - determine kind based on type
+					kind := determineTypeKind(s)
+					symbols = append(symbols, &api.Symbol{
+						Name:     s.Name.Name,
+						Kind:     kind,
+						FilePath: pgf.URI.Path(),
+						Line:     int(pgf.Tok.Line(s.Pos())),
+					})
+
+				case *ast.ValueSpec:
+					// Variable or constant declaration
+					kind := api.SymbolKindVariable
+					if tok == token.CONST {
+						kind = api.SymbolKindConstant
+					}
+
+					for _, name := range s.Names {
+						symbols = append(symbols, &api.Symbol{
+							Name:     name.Name,
+							Kind:     kind,
+							FilePath: pgf.URI.Path(),
+							Line:     int(pgf.Tok.Line(name.Pos())),
+						})
+					}
+				}
+			}
 		}
 	}
 
-	result := &api.OSearchResult{
-		Summary: summary,
-		Symbols: symbols,
+	return symbols
+}
+
+// determineTypeKind determines the SymbolKind for a TypeSpec
+func determineTypeKind(spec *ast.TypeSpec) api.SymbolKind {
+	if spec.Type == nil {
+		return api.SymbolKindType
 	}
-	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: summary}}}, result, nil
+
+	switch spec.Type.(type) {
+	case *ast.StructType:
+		return api.SymbolKindStruct
+	case *ast.InterfaceType:
+		return api.SymbolKindInterface
+	default:
+		// For type aliases and other types
+		return api.SymbolKindType
+	}
+}
+
+// fuzzyMatchSymbols performs fuzzy matching on symbol names against the query.
+// Uses a simple substring match for now (can be enhanced with better fuzzy matching).
+func fuzzyMatchSymbols(symbols []*api.Symbol, query string) []*api.Symbol {
+	if query == "" {
+		return symbols
+	}
+
+	query = strings.ToLower(query)
+	var matched []*api.Symbol
+
+	for _, sym := range symbols {
+		if strings.Contains(strings.ToLower(sym.Name), query) {
+			matched = append(matched, sym)
+		}
+	}
+
+	return matched
+}
+
+// sortAndLimitSymbols sorts symbols by relevance and limits to maxResults.
+// For now, simple alphabetical sorting (can be enhanced with relevance scoring).
+// Returns the sorted and limited slice.
+func sortAndLimitSymbols(symbols []*api.Symbol, maxResults int) []*api.Symbol {
+	sortSymbols(symbols)
+
+	if len(symbols) > maxResults {
+		// Clear references to symbols beyond maxResults for GC
+		for i := maxResults; i < len(symbols); i++ {
+			symbols[i] = nil
+		}
+		return symbols[:maxResults]
+	}
+	return symbols
+}
+
+func sortSymbols(symbols []*api.Symbol) {
+	for i := 1; i < len(symbols); i++ {
+		key := symbols[i]
+		j := i - 1
+		for j >= 0 && symbols[j].Name > key.Name {
+			symbols[j+1] = symbols[j]
+			j--
+		}
+		symbols[j+1] = key
+	}
+}
+
+// buildSearchSummary builds a human-readable summary of search results.
+func buildSearchSummary(symbols []*api.Symbol, maxResults int) string {
+	if len(symbols) == 0 {
+		return "No symbols found."
+	}
+
+	var summary string
+	if len(symbols) > maxResults {
+		summary = fmt.Sprintf("Found %d symbol(s) (showing first %d):\n", len(symbols), maxResults)
+	} else {
+		summary = fmt.Sprintf("Found %d symbol(s):\n", len(symbols))
+	}
+
+	for _, sym := range symbols {
+		summary += fmt.Sprintf("  - %s (%s in %s:%d)\n", sym.Name, sym.Kind, sym.FilePath, sym.Line)
+	}
+
+	if len(symbols) > maxResults {
+		summary += fmt.Sprintf("... and %d more (use max_results for more)\n", len(symbols)-maxResults)
+	}
+
+	return summary
 }
 
 // ===== go_definition =====

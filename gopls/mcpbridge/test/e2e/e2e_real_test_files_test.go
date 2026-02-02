@@ -261,6 +261,7 @@ func TestRealTestFiles_FindTestUsages(t *testing.T) {
 			Arguments: map[string]any{
 				"query":       "globalSession",
 				"max_results": 10,
+				"Cwd":         globalGoplsMcpDir,
 			},
 		})
 		if err != nil {

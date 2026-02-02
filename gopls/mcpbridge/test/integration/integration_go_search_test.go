@@ -114,7 +114,7 @@ func TestGoSearchE2E(t *testing.T) {
 		"CommonKeywords": {
 			tool: "go_search",
 			args: map[string]any{
-				"query": "func",
+				"query": "Hello", // Search for actual symbol in simple project
 			},
 			assertions: []assertion{
 				assertContains("Found"), // Should find results
