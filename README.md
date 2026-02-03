@@ -9,4 +9,9 @@ Unlike standard retrieval tools that flood the context window with irrelevant te
 
 By providing only the scientifically accurate definitions and references, it maximizes your model's attention span and keeps the reasoning chain pure. Zero noise, absolute structural accuracy, and instant response times.
 
+## Contribute
+
+The project is actively developing, and feel free to raise PRs or issues if you find anything to improve.
+AI generated code will also be accepted but do remember to narrow the change to a specfic feature for reviewer to quickly review them.
+
 *Disclaimer*: gopls-mcp is a hardfork of [gopls](https://tip.golang.org/gopls/) and is a community-driven project. It is not an official Go team product and is not affiliated with or endorsed by Google LLC. This project is licensed under the same BSD license as its  [upstream](https://go.googlesource.com/tools) source.
