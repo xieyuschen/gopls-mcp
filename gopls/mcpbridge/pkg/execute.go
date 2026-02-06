@@ -131,10 +131,14 @@ func Execute() {
 	// Merge CLI directory filters into config (overrides config file value)
 	if *directoryFiltersFlag != "" {
 		parts := strings.Split(*directoryFiltersFlag, ",")
-		// Convert to []any so opts.Set (which expects JSON-style types) accepts it
-		filters := make([]any, len(parts))
-		for i, p := range parts {
-			filters[i] = strings.TrimSpace(p)
+		// Convert to []any so opts.Set (which expects JSON-style types) accepts it.
+		// Skip empty strings from extra commas to avoid validation failure in gopls
+		// which would silently discard all filters.
+		var filters []any
+		for _, p := range parts {
+			if s := strings.TrimSpace(p); s != "" {
+				filters = append(filters, s)
+			}
 		}
 		if config.Gopls == nil {
 			config.Gopls = make(map[string]any)
