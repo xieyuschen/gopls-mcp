@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/tools/gopls/internal/cache"
+	"golang.org/x/tools/gopls/internal/filewatcher"
 	"golang.org/x/tools/gopls/internal/protocol"
 	"golang.org/x/tools/gopls/internal/settings"
 	"golang.org/x/tools/gopls/mcpbridge/core"
@@ -175,10 +177,18 @@ func Execute() {
 	// The watcher uses DidChangeWatchedFiles to notify gopls of file changes
 	lspServer := &minimalServer{session: session}
 
+	// Build directory skip function from directoryFilters so the file
+	// watcher excludes the same directories that gopls analysis ignores
+	// (e.g. node_modules). See https://github.com/xieyuschen/gopls-mcp/issues/10.
+	var watcherOpts []filewatcher.Option
+	if filters := options.DirectoryFilters; len(filters) > 0 {
+		watcherOpts = append(watcherOpts, makeDirectoryFilterSkipFunc(filters, projectDir))
+	}
+
 	// Start file change watcher
 	// This keeps the gopls cache up-to-date when files are edited
 	var fileWatcher *watcher.Watcher
-	fileWatcher, err = watcher.New(lspServer, projectDir)
+	fileWatcher, err = watcher.New(lspServer, projectDir, watcherOpts...)
 	if err != nil {
 		log.Printf("[gopls-mcp] Failed to start file watcher: %v", err)
 		// Continue anyway - tools will work but file changes won't be detected
@@ -244,6 +254,19 @@ func Execute() {
 		fmt.Fprintf(os.Stderr, "[gopls-mcp] Received signal: %v\n", sig)
 	}
 	// Always exit cleanly - stdio mode ends when client closes connection
+}
+
+func makeDirectoryFilterSkipFunc(filters []string, root string) filewatcher.Option {
+	pathIncluded := cache.PathIncludeFunc(filters)
+	cleanRoot := filepath.Clean(root)
+	return filewatcher.WithSkipDir(func(dirPath string) bool {
+		rel, err := filepath.Rel(cleanRoot, dirPath)
+		if err != nil {
+			return false
+		}
+		rel = filepath.ToSlash(rel)
+		return !pathIncluded(rel)
+	})
 }
 
 func helpAndUsage() {
