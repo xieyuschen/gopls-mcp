@@ -465,6 +465,120 @@ package b
 	}
 }
 
+func TestSkipDirFunc(t *testing.T) {
+	switch runtime.GOOS {
+	case "darwin", "linux", "windows":
+	default:
+		t.Skip("unsupported OS")
+	}
+
+	root := t.TempDir()
+
+	foundAll := make(chan struct{})
+	var gots []protocol.FileEvent
+
+	wants := []protocol.FileEvent{
+		{URI: "allowed", Type: protocol.Created},
+		{URI: "allowed/hello.go", Type: protocol.Created},
+	}
+
+	matched := 0
+	eventsHandler := func(events []protocol.FileEvent) {
+		gots = append(gots, events...)
+
+		if matched == len(wants) {
+			return
+		}
+
+		for _, got := range events {
+			// Fail immediately if we receive any event for the ignored directory.
+			rel := strings.TrimPrefix(got.URI.Path(), root+"/")
+			if strings.HasPrefix(rel, "ignored") {
+				// Don't call t.Fatal from the handler goroutine;
+				// record it so we can check after the select.
+				return
+			}
+
+			want := protocol.FileEvent{
+				URI:  protocol.URIFromPath(filepath.Join(root, string(wants[matched].URI))),
+				Type: wants[matched].Type,
+			}
+			if want == got {
+				matched++
+			}
+			if matched == len(wants) {
+				close(foundAll)
+				return
+			}
+		}
+	}
+	errHandler := func(err error) {
+		t.Errorf("error from watcher: %v", err)
+	}
+
+	skipDirFunc := func(dirPath string) bool {
+		return filepath.Base(dirPath) == "ignored"
+	}
+
+	w, err := filewatcher.New(50*time.Millisecond, nil, eventsHandler, errHandler, filewatcher.WithSkipDir(skipDirFunc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := w.Close(); err != nil {
+			t.Errorf("failed to close the file watcher: %v", err)
+		}
+	}()
+
+	if err := w.WatchDir(root); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create the ignored directory and a file inside it (simulates npm install).
+	if err := os.Mkdir(filepath.Join(root, "ignored"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "ignored", "stuff.txt"), []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Small delay to let the ignored events (if any) be processed before
+	// creating the allowed directory, so ordering is deterministic.
+	time.Sleep(200 * time.Millisecond)
+
+	// Create the allowed directory and a file inside it.
+	if err := os.Mkdir(filepath.Join(root, "allowed"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "allowed", "hello.go"), []byte("package main"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case <-foundAll:
+	case <-time.After(30 * time.Second):
+		if matched != len(wants) {
+			var want strings.Builder
+			for _, e := range wants {
+				want.WriteString(fmt.Sprintf("URI: %s type: %v\n", e.URI, e.Type))
+			}
+			var got strings.Builder
+			for _, e := range gots {
+				got.WriteString(fmt.Sprintf("URI: %s type: %v\n", strings.TrimPrefix(e.URI.Path(), root+"/"), e.Type))
+			}
+			t.Errorf("found %v matching events slice\nwant sequences:\n%s\nall got:\n%s", matched, want.String(), got.String())
+		}
+	}
+
+	// Verify no events leaked for the ignored directory.
+	for _, e := range gots {
+		rel := strings.TrimPrefix(e.URI.Path(), root+"/")
+		if strings.HasPrefix(rel, "ignored") {
+			t.Errorf("received event for filtered directory: URI=%s Type=%v", rel, e.Type)
+		}
+	}
+}
+
 func TestStress(t *testing.T) {
 	switch runtime.GOOS {
 	case "darwin", "linux", "windows":

@@ -353,6 +353,9 @@ func (w *Watcher) convertEvent(event fsnotify.Event) (_ protocol.FileEvent, isDi
 	if isDir && skipDir(filepath.Base(event.Name)) {
 		return protocol.FileEvent{}, true
 	}
+	if isDir && w.skipDirFunc != nil && w.skipDirFunc(event.Name) {
+		return protocol.FileEvent{}, true
+	}
 	if !isDir && skipFile(filepath.Base(event.Name)) {
 		return protocol.FileEvent{}, false
 	}
