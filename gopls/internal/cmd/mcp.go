@@ -126,7 +126,7 @@ func (m *headlessMCP) Run(ctx context.Context, args ...string) error {
 			if err != nil {
 				return false
 			}
-			return !pathIncluded(rel)
+			return !pathIncluded(filepath.ToSlash(rel))
 		}))
 	}
 
