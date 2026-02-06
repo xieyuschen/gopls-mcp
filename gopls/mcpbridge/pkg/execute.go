@@ -9,10 +9,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/tools/gopls/internal/cache"
+	"golang.org/x/tools/gopls/internal/filewatcher"
 	"golang.org/x/tools/gopls/internal/protocol"
 	"golang.org/x/tools/gopls/internal/settings"
 	"golang.org/x/tools/gopls/mcpbridge/core"
@@ -55,6 +58,9 @@ var (
 	// logfile is the path to a log file for debugging (optional).
 	// When set, logs are written to this file even in stdio mode.
 	logfile = flag.String("logfile", "", "Path to log file for debugging (writes logs even in stdio mode)")
+	// directoryFiltersFlag allows setting gopls directoryFilters via CLI flag.
+	// Filters use the same syntax as gopls directoryFilters (e.g. "-**/node_modules,-vendor").
+	directoryFiltersFlag = flag.String("directory-filters", "", "Comma-separated directory filters (e.g. \"-**/node_modules,-vendor\")")
 )
 
 const (
@@ -122,6 +128,25 @@ func Execute() {
 		config = core.DefaultConfig()
 	}
 
+	// Merge CLI directory filters into config (overrides config file value)
+	if *directoryFiltersFlag != "" {
+		parts := strings.Split(*directoryFiltersFlag, ",")
+		// Convert to []any so opts.Set (which expects JSON-style types) accepts it.
+		// Skip empty strings from extra commas to avoid validation failure in gopls
+		// which would silently discard all filters.
+		var filters []any
+		for _, p := range parts {
+			if s := strings.TrimSpace(p); s != "" {
+				filters = append(filters, s)
+			}
+		}
+		if config.Gopls == nil {
+			config.Gopls = make(map[string]any)
+		}
+		config.Gopls["directoryFilters"] = filters
+		log.Printf("[gopls-mcp] Directory filters from CLI: %v", filters)
+	}
+
 	// Override workdir from config if set
 	if config.Workdir != "" {
 		projectDir = config.Workdir
@@ -175,10 +200,18 @@ func Execute() {
 	// The watcher uses DidChangeWatchedFiles to notify gopls of file changes
 	lspServer := &minimalServer{session: session}
 
+	// Build directory skip function from directoryFilters so the file
+	// watcher excludes the same directories that gopls analysis ignores
+	// (e.g. node_modules). See https://github.com/xieyuschen/gopls-mcp/issues/10.
+	var watcherOpts []filewatcher.Option
+	if filters := options.DirectoryFilters; len(filters) > 0 {
+		watcherOpts = append(watcherOpts, makeDirectoryFilterSkipFunc(filters, projectDir))
+	}
+
 	// Start file change watcher
 	// This keeps the gopls cache up-to-date when files are edited
 	var fileWatcher *watcher.Watcher
-	fileWatcher, err = watcher.New(lspServer, projectDir)
+	fileWatcher, err = watcher.New(lspServer, projectDir, watcherOpts...)
 	if err != nil {
 		log.Printf("[gopls-mcp] Failed to start file watcher: %v", err)
 		// Continue anyway - tools will work but file changes won't be detected
@@ -244,6 +277,19 @@ func Execute() {
 		fmt.Fprintf(os.Stderr, "[gopls-mcp] Received signal: %v\n", sig)
 	}
 	// Always exit cleanly - stdio mode ends when client closes connection
+}
+
+func makeDirectoryFilterSkipFunc(filters []string, root string) filewatcher.Option {
+	pathIncluded := cache.PathIncludeFunc(filters)
+	cleanRoot := filepath.Clean(root)
+	return filewatcher.WithSkipDir(func(dirPath string) bool {
+		rel, err := filepath.Rel(cleanRoot, dirPath)
+		if err != nil {
+			return false
+		}
+		rel = filepath.ToSlash(rel)
+		return !pathIncluded(rel)
+	})
 }
 
 func helpAndUsage() {

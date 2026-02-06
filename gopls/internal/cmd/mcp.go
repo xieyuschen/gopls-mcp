@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"golang.org/x/tools/gopls/internal/filewatcher"
 	"golang.org/x/tools/gopls/internal/mcp"
 	"golang.org/x/tools/gopls/internal/protocol"
+	"golang.org/x/tools/gopls/internal/settings"
 )
 
 type headlessMCP struct {
@@ -106,6 +108,28 @@ func (m *headlessMCP) Run(ctx context.Context, args ...string) error {
 		}
 	}()
 
+	// TODO(hxjiang): replace this with LSP initial param workspace root.
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	// Build directory skip function from directoryFilters so the file
+	// watcher excludes the same directories that gopls analysis ignores
+	// (e.g. node_modules). See https://github.com/xieyuschen/gopls-mcp/issues/10.
+	var watcherOpts []filewatcher.Option
+	if opts := settings.DefaultOptions(m.app.options); len(opts.DirectoryFilters) > 0 {
+		pathIncluded := cache.PathIncludeFunc(opts.DirectoryFilters)
+		root := filepath.Clean(dir)
+		watcherOpts = append(watcherOpts, filewatcher.WithSkipDir(func(dirPath string) bool {
+			rel, err := filepath.Rel(root, dirPath)
+			if err != nil {
+				return false
+			}
+			return !pathIncluded(filepath.ToSlash(rel))
+		}))
+	}
+
 	errHandler := func(err error) {
 		log.Printf("watch error: %v", err)
 	}
@@ -125,17 +149,12 @@ func (m *headlessMCP) Run(ctx context.Context, args ...string) error {
 		case nonempty <- struct{}{}:
 		default:
 		}
-	}, errHandler)
+	}, errHandler, watcherOpts...)
 	if err != nil {
 		return err
 	}
 	defer w.Close()
 
-	// TODO(hxjiang): replace this with LSP initial param workspace root.
-	dir, err := os.Getwd()
-	if err != nil {
-		return err
-	}
 	if err := w.WatchDir(dir); err != nil {
 		return err
 	}
