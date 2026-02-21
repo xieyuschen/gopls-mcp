@@ -34,6 +34,12 @@ type Watcher struct {
 
 	watcher *fsnotify.Watcher
 
+	// skipDirFunc, if non-nil, reports whether a directory at the given
+	// absolute path should be excluded from watching. It is consulted
+	// after the built-in skipDir check and allows callers to inject
+	// gopls directoryFilters or similar rules.
+	skipDirFunc func(dirPath string) bool
+
 	mu sync.Mutex // guards all fields below
 
 	// in is the queue of fsnotify events waiting to be processed.
@@ -48,13 +54,23 @@ type Watcher struct {
 	knownDirs map[string]struct{}
 }
 
+// Option configures a [Watcher].
+type Option func(*Watcher)
+
+// WithSkipDir sets a function that reports whether a directory at the
+// given absolute path should be excluded from watching. This is
+// consulted in addition to the built-in [skipDir] heuristic.
+func WithSkipDir(fn func(dirPath string) bool) Option {
+	return func(w *Watcher) { w.skipDirFunc = fn }
+}
+
 // New creates a new file watcher and starts its event-handling loop. The
 // [Watcher.Close] method must be called to clean up resources.
 //
 // The provided event handler is called sequentially with a batch of file events,
 // but the error handler is called concurrently. The watcher blocks until the
 // handler returns, so the handlers should be fast and non-blocking.
-func New(delay time.Duration, logger *slog.Logger, eventsHandler func([]protocol.FileEvent), errHandler func(error)) (*Watcher, error) {
+func New(delay time.Duration, logger *slog.Logger, eventsHandler func([]protocol.FileEvent), errHandler func(error), opts ...Option) (*Watcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -65,6 +81,10 @@ func New(delay time.Duration, logger *slog.Logger, eventsHandler func([]protocol
 		knownDirs: make(map[string]struct{}),
 		stop:      make(chan struct{}),
 		ready:     make(chan struct{}, 1),
+	}
+
+	for _, opt := range opts {
+		opt(w)
 	}
 
 	w.wg.Add(1)
@@ -297,6 +317,9 @@ func (w *Watcher) WatchDir(path string) error {
 			if skipDir(d.Name()) {
 				return filepath.SkipDir
 			}
+			if w.skipDirFunc != nil && w.skipDirFunc(path) {
+				return filepath.SkipDir
+			}
 
 			return w.watchDir(path)
 		}
@@ -328,6 +351,9 @@ func (w *Watcher) convertEvent(event fsnotify.Event) (_ protocol.FileEvent, isDi
 
 	// Filter out events for directories and files that are not of interest.
 	if isDir && skipDir(filepath.Base(event.Name)) {
+		return protocol.FileEvent{}, true
+	}
+	if isDir && w.skipDirFunc != nil && w.skipDirFunc(event.Name) {
 		return protocol.FileEvent{}, true
 	}
 	if !isDir && skipFile(filepath.Base(event.Name)) {
@@ -465,11 +491,15 @@ func (w *Watcher) walkDir(path string, isDir bool, errHandler func(error), fn fu
 		if e.IsDir() && skipDir(e.Name()) {
 			continue
 		}
+		childPath := filepath.Join(path, e.Name())
+		if e.IsDir() && w.skipDirFunc != nil && w.skipDirFunc(childPath) {
+			continue
+		}
 		if !e.IsDir() && skipFile(e.Name()) {
 			continue
 		}
 
-		w.walkDir(filepath.Join(path, e.Name()), e.IsDir(), errHandler, fn)
+		w.walkDir(childPath, e.IsDir(), errHandler, fn)
 	}
 }
 

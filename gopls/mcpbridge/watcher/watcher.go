@@ -44,7 +44,7 @@ type ChangeWatchedFiles interface {
 //
 // The server parameter should implement protocol.ServerDidChangeWatchedFiles to handle
 // file change notifications and invalidate the gopls cache appropriately.
-func New(server ChangeWatchedFiles, dir string) (*Watcher, error) {
+func New(server ChangeWatchedFiles, dir string, opts ...filewatcher.Option) (*Watcher, error) {
 	w := &Watcher{
 		server:     server,
 		dir:        dir,
@@ -116,7 +116,7 @@ func New(server ChangeWatchedFiles, dir string) (*Watcher, error) {
 		case nonempty <- struct{}{}:
 		default:
 		}
-	}, errHandler)
+	}, errHandler, opts...)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file watcher: %w", err)
