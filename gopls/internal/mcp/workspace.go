@@ -77,7 +77,7 @@ func (h *handler) workspaceHandler(ctx context.Context, req *mcp.CallToolRequest
 func summarizeModFiles(ctx context.Context, w io.Writer, snapshot *cache.Snapshot) {
 	v := snapshot.View()
 	for _, m := range v.ModFiles() {
-		if modPath, err := modulePath(ctx, snapshot, m); err != nil {
+		if modPath, err := ModulePath(ctx, snapshot, m); err != nil {
 			// Fall back on just the go.mod file.
 			fmt.Fprintf(w, "\t%s\n", m.Path())
 		} else {
@@ -86,7 +86,9 @@ func summarizeModFiles(ctx context.Context, w io.Writer, snapshot *cache.Snapsho
 	}
 }
 
-func modulePath(ctx context.Context, snapshot *cache.Snapshot, uri protocol.DocumentURI) (string, error) {
+// ModulePath returns the module path from a go.mod file.
+// This is a utility function used by multiple MCP tools.
+func ModulePath(ctx context.Context, snapshot *cache.Snapshot, uri protocol.DocumentURI) (string, error) {
 	fh, err := snapshot.ReadFile(ctx, uri)
 	if err != nil {
 		return "", fmt.Errorf("Reading %s: %v", uri, err)

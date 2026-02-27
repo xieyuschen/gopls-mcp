@@ -10,6 +10,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/tools/gopls/internal/cache"
+	goplsmcp "golang.org/x/tools/gopls/internal/mcp"
 	"golang.org/x/tools/gopls/mcpbridge/api"
 )
 
@@ -314,8 +315,12 @@ func getModuleDependencies(ctx context.Context, snapshot *cache.Snapshot, view *
 			continue
 		}
 
-		// Main module
-		modPath := pmf.File.Module.Mod.Path
+		// Main module - use gopls's ModulePath utility
+		modPath, err := goplsmcp.ModulePath(ctx, snapshot, modURI)
+		if err != nil {
+			continue
+		}
+
 		modules = append(modules, api.Module{
 			Path:  modPath,
 			Main:  true,
