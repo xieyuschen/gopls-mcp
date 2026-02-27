@@ -44,6 +44,7 @@ jobs:
   post-release:
     needs: goreleaser
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.continue-on-error == true }}
     strategy:
       fail-fast: false
       matrix:
@@ -60,10 +61,12 @@ jobs:
             name: "Linux ARM64"
             script: "site/public/install.sh"
             binary: "gopls-mcp"
+            continue-on-error: true
           - os: macos-latest-arm64
             name: "macOS ARM64"
             script: "site/public/install.sh"
             binary: "gopls-mcp"
+            continue-on-error: true
           - os: windows-latest
             name: "Windows"
             script: "site/public/install.ps1"
