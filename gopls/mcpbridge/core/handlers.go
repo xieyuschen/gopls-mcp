@@ -17,6 +17,7 @@ import (
 	"golang.org/x/tools/gopls/internal/cache/metadata"
 	"golang.org/x/tools/gopls/internal/cache/parsego"
 	"golang.org/x/tools/gopls/internal/golang"
+	goplsmcp "golang.org/x/tools/gopls/internal/mcp"
 	"golang.org/x/tools/gopls/internal/protocol"
 	"golang.org/x/tools/gopls/internal/settings"
 	"golang.org/x/tools/gopls/mcpbridge/api"
@@ -372,17 +373,11 @@ func handleListModulePackages(ctx context.Context, h *Handler, req *mcp.CallTool
 		if len(modFiles) == 0 {
 			return nil, nil, fmt.Errorf("no go.mod files found in view")
 		}
+		// Use gopls's ModulePath utility function
 		for _, modURI := range modFiles {
-			fh, err := snapshot.ReadFile(ctx, modURI)
-			if err != nil {
-				continue
-			}
-			pmf, err := snapshot.ParseMod(ctx, fh)
-			if err != nil {
-				continue
-			}
-			if pmf.File != nil && pmf.File.Module != nil {
-				targetModulePath = pmf.File.Module.Mod.Path
+			modPath, err := goplsmcp.ModulePath(ctx, snapshot, modURI)
+			if err == nil {
+				targetModulePath = modPath
 				break
 			}
 		}
@@ -668,7 +663,9 @@ func handleGetStarted(ctx context.Context, h *Handler, req *mcp.CallToolRequest,
 			}
 			if pmf.File != nil && pmf.File.Module != nil {
 				modulePath = pmf.File.Module.Mod.Path
-				goVersion = pmf.File.Go.Version
+				if pmf.File.Go != nil {
+					goVersion = pmf.File.Go.Version
+				}
 				break
 			}
 		}
@@ -960,17 +957,11 @@ func handleGetDependencyGraph(ctx context.Context, h *Handler, req *mcp.CallTool
 		if len(modFiles) == 0 {
 			return nil, nil, fmt.Errorf("no go.mod files found in view")
 		}
+		// Use gopls's ModulePath utility function
 		for _, modURI := range modFiles {
-			fh, err := snapshot.ReadFile(ctx, modURI)
-			if err != nil {
-				continue
-			}
-			pmf, err := snapshot.ParseMod(ctx, fh)
-			if err != nil {
-				continue
-			}
-			if pmf.File != nil && pmf.File.Module != nil {
-				targetPkgPath = pmf.File.Module.Mod.Path
+			modPath, err := goplsmcp.ModulePath(ctx, snapshot, modURI)
+			if err == nil {
+				targetPkgPath = modPath
 				break
 			}
 		}
