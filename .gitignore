@@ -9,6 +9,7 @@ site/docs/
 gopls/gopls
 # Claude Code
 .claude/
+.gemini/
 .env
 gopls/mcpbridge/test/benchmark/benchmark_results.json
 gopls/mcpbridge/test/benchmark/RESULTS.md
