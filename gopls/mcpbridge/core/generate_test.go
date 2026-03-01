@@ -52,13 +52,11 @@ func TestGenerateCLAUDEToolReference(t *testing.T) {
 		t.Fatal("Generated content is empty")
 	}
 
-	// Check that it contains expected sections
+	// Check that it contains expected sections (table format)
 	expectedSections := []string{
-		"### Discovery & Navigation",
-		"### Reading & Understanding",
-		"### Analysis & Refactoring",
-		"### Verification",
-		"### Meta",
+		"### Code relationships (Exclusive Capabilities - NO FALLBACK)",
+		"### Code exploration (Enhanced Capabilities - FALLBACK ALLOWED)",
+		"| Task | Tool |",
 	}
 
 	for _, section := range expectedSections {
@@ -72,6 +70,7 @@ func TestGenerateCLAUDEToolReference(t *testing.T) {
 		"go_search",
 		"go_definition",
 		"go_build_check",
+		"go_implementation",
 	}
 
 	for _, tool := range knownTools {

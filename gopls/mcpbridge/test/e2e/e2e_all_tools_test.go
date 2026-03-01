@@ -256,19 +256,6 @@ func TestAllTools(t *testing.T) {
 				}
 			},
 		},
-		// File Tools
-		{
-			name: "go_read_file",
-			tool: "go_read_file",
-			args: map[string]any{
-				"file": handlersPath,
-			},
-			assertion: func(t *testing.T, content string) {
-				if !strings.Contains(content, "package") && !strings.Contains(content, "func") {
-					t.Errorf("Expected Go code content, got: %s", content)
-				}
-			},
-		},
 	}
 
 	// Run all test cases

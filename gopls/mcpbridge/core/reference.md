@@ -172,17 +172,6 @@ Find all implementations of an interface or all interfaces implemented by a type
 **See also**: go_symbol_references for finding usages.
 
 
-### `go_read_file`
-
-> Read file content through gopls. SLOWER: reads full file from disk. Use this when you need to see actual code or implementation details. Note: unsaved editor changes not included.
-
-Read file content through gopls.
-
-**When to use**: You need to see actual code or implementation details.
-
-**Note**: Unsaved editor changes are not included. This reads from disk.
-
-
 ### `go_definition`
 
 > Jump to the definition of a symbol using semantic location (symbol name, package, scope). REPLACES: grep + manual file reading. Use this when you see a function call or type reference and need to find where it's defined. Faster and more accurate than text search - uses type information from gopls.

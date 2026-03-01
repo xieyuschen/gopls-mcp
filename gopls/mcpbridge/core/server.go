@@ -25,7 +25,6 @@ const (
 	ToolGoSymbolReferences     = "go_symbol_references"
 	ToolGoDryrunRenameSymbol   = "go_dryrun_rename_symbol"
 	ToolGoImplementation       = "go_implementation"
-	ToolGoReadFile             = "go_read_file"
 	ToolGoDefinition           = "go_definition"
 
 	// Call hierarchy tools
@@ -103,15 +102,6 @@ var tools = []Tool{
 		Name:        ToolGoImplementation,
 		Description: "Find all implementations of an interface or all interfaces implemented by a type using semantic location (symbol name, package, scope). Use this to understand type hierarchies, find all implementations of an interface, or discover design patterns in the codebase. REPLACES: grep + manual file reading for interface implementations.",
 		Handler:     handleGoImplementation, // uses semantic bridge (golang.LLMImplementation)
-	},
-
-	// todo: is it necessary to support partially read?
-	// e.g., read first N lines, or read from line X to line Y,
-	// it will greatly reduce token cost and attention dilution.
-	GenericTool[api.IReadFileParams, *api.OReadFileResult]{
-		Name:        ToolGoReadFile,
-		Description: "Read file content through gopls. SLOWER: reads full file from disk. Use this when you need to see actual code or implementation details. Note: unsaved editor changes not included.",
-		Handler:     handleGoReadFile, // wrapper for snapshot.ReadFile()
 	},
 
 	// Navigation tools
@@ -216,100 +206,59 @@ These tools are type-aware, fast, and token-efficient compared to text-based alt
 }
 
 // GenerateCLAUDEToolReference generates a concise tool reference for CLAUDE.md.
-// This is a more compact format focusing on "what tool for what goal".
+// Uses a task-driven table format: "what task → what tool → what fallback (if any)".
 func GenerateCLAUDEToolReference() (string, error) {
 	var buf strings.Builder
 
-	// Group tools by category
-	discovery := []string{"go_get_started", "go_analyze_workspace", "go_list_modules", "go_list_module_packages", "go_list_package_symbols", "go_search"}
-	reading := []string{"go_definition", "go_symbol_references", "go_implementation", "go_read_file", "go_get_package_symbol_detail", "go_get_call_hierarchy"}
-	analysis := []string{"go_get_dependency_graph", "go_dryrun_rename_symbol"}
-	verification := []string{"go_build_check"}
-	meta := []string{"go_list_tools"}
+	// Table 1: Code relationships (Exclusive Capabilities - NO FALLBACK)
+	// These tools provide unique semantic understanding that cannot be replaced with text search
+	buf.WriteString("### Code relationships (Exclusive Capabilities - NO FALLBACK)\n")
+	buf.WriteString("| Task | Tool |\n")
+	buf.WriteString("|------|------|\n")
 
-	buf.WriteString("### Discovery & Navigation\n\n")
-	for _, name := range discovery {
-		writeToolEntry(&buf, name)
+	exclusiveTools := []struct {
+		task string
+		tool string
+	}{
+		{"Find interface implementations", "go_implementation"},
+		{"Trace call relationships", "go_get_call_hierarchy"},
+		{"Find symbol references", "go_symbol_references"},
+		{"Jump to definition", "go_definition"},
+		{"Analyze dependencies", "go_get_dependency_graph"},
+		{"Preview renaming", "go_dryrun_rename_symbol"},
 	}
 
-	buf.WriteString("### Reading & Understanding\n\n")
-	for _, name := range reading {
-		writeToolEntry(&buf, name)
+	for _, entry := range exclusiveTools {
+		fmt.Fprintf(&buf, "| %s | %s |\n", entry.task, entry.tool)
+	}
+	buf.WriteString("\n")
+
+	// Table 2: Code exploration (Enhanced Capabilities - FALLBACK ALLOWED)
+	// These tools are faster/more accurate but text-based alternatives exist
+	buf.WriteString("### Code exploration (Enhanced Capabilities - FALLBACK ALLOWED)\n")
+	buf.WriteString("| Task | Tool | Fallback after 3 failures |\n")
+	buf.WriteString("|------|------|---------------------------|\n")
+
+	enhancedTools := []struct {
+		task     string
+		tool     string
+		fallback string
+	}{
+		{"List package symbols", "go_list_package_symbols", "Glob + Read"},
+		{"List module packages", "go_list_module_packages", "find"},
+		{"Analyze workspace", "go_analyze_workspace", "Manual exploration"},
+		{"Quick project overview", "go_get_started", "Read README + go.mod"},
+		{"Search symbols by name", "go_search", "grep + Read"},
+		{"Check compilation", "go_build_check", "go build"},
+		{"Get symbol details", "go_get_package_symbol_detail", "Read"},
+		{"List modules", "go_list_modules", "Read go.mod"},
 	}
 
-	buf.WriteString("### Analysis & Refactoring\n\n")
-	for _, name := range analysis {
-		writeToolEntry(&buf, name)
-	}
-
-	buf.WriteString("### Verification\n\n")
-	for _, name := range verification {
-		writeToolEntry(&buf, name)
-	}
-
-	buf.WriteString("### Meta\n\n")
-	for _, name := range meta {
-		writeToolEntry(&buf, name)
+	for _, entry := range enhancedTools {
+		fmt.Fprintf(&buf, "| %s | %s | %s |\n", entry.task, entry.tool, entry.fallback)
 	}
 
 	return buf.String(), nil
-}
-
-// writeToolEntry writes a single tool entry in CLAUDE.md format
-func writeToolEntry(buf *strings.Builder, toolName string) {
-	// Find the tool
-	var targetTool Tool
-	for _, tool := range tools {
-		name, _ := tool.Details()
-		if name == toolName {
-			targetTool = tool
-			break
-		}
-	}
-
-	if targetTool == nil {
-		return // Tool not found, skip
-	}
-
-	name, description := targetTool.Details()
-	docs := targetTool.Docs()
-
-	// Format: **tool_name**: one-line description
-	// Extract first line from description as one-liner
-	lines := strings.Split(description, ".")
-	if len(lines) > 0 {
-		oneLiner := strings.TrimSpace(lines[0])
-		if !strings.HasSuffix(oneLiner, ".") {
-			oneLiner += "."
-		}
-		fmt.Fprintf(buf, "- **%s**: %s\n", name, oneLiner)
-	}
-
-	// Add "See also" cross-references if they exist in docs
-	if strings.Contains(docs, "**See also**") {
-		// Extract see also section
-		idx := strings.Index(docs, "**See also**")
-		if idx != -1 {
-			seeAlso := docs[idx:]
-			// Keep it concise - just the tool names
-			lines = strings.Split(seeAlso, "\n")
-			for _, line := range lines {
-				line = strings.TrimSpace(line)
-				if strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "*") {
-					// Extract tool name from markdown
-					if idx := strings.Index(line, "`"); idx != -1 {
-						endIdx := strings.Index(line[idx+1:], "`")
-						if endIdx != -1 {
-							toolRef := line[idx+1 : idx+1+endIdx]
-							fmt.Fprintf(buf, "  - See: `%s`\n", toolRef)
-						}
-					}
-				}
-			}
-		}
-	}
-
-	buf.WriteString("\n")
 }
 
 // UpdateReference updates the reference.md with the current tool list.

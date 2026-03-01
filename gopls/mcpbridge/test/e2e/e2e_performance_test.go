@@ -24,34 +24,6 @@ type performanceTestCase struct {
 	description string
 }
 
-// TestPerformance_LargeFiles tests tool performance on large files
-func TestPerformance_LargeFiles(t *testing.T) {
-	largeFile := filepath.Join(globalGoplsMcpDir, "core", "handlers.go")
-
-	testCases := []performanceTestCase{
-		{
-			name:    "ReadLargeFile",
-			tool:    "go_read_file",
-			args:    map[string]any{"file": largeFile},
-			timeout: 5 * time.Second,
-			assertion: func(t *testing.T, content string, duration time.Duration) {
-				t.Logf("Read large file (%d bytes) in %v", len(content), duration)
-
-				if duration > 5*time.Second {
-					t.Errorf("Reading large file took too long: %v (expected < 5s)", duration)
-				}
-
-				if !strings.Contains(content, "package") {
-					t.Error("Expected Go code content")
-				}
-			},
-			description: "Read a large production file efficiently",
-		},
-	}
-
-	runPerformanceTests(t, testCases)
-}
-
 // runPerformanceTests executes performance test cases
 func runPerformanceTests(t *testing.T, testCases []performanceTestCase) {
 	for _, tc := range testCases {
@@ -485,35 +457,6 @@ func TestPerformance_DiagnosticsIncremental(t *testing.T) {
 
 // TestPerformance_LargeTestFile tests performance on test files
 func TestPerformance_LargeTestFile(t *testing.T) {
-	t.Run("ComprehensiveTestFile", func(t *testing.T) {
-		// Test: Work with a large E2E test file
-		largeTestFile := filepath.Join(globalGoplsMcpDir, "test", "e2e", "e2e_comprehensive_workflows_test.go")
-
-		// Read the file
-		start := time.Now()
-		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-			Name: "go_read_file",
-			Arguments: map[string]any{
-				"file": largeTestFile,
-			},
-		})
-		duration := time.Since(start)
-
-		if err != nil {
-			t.Fatalf("Failed to read file: %v", err)
-		}
-
-		_ = testutil.ResultText(t, res, testutil.GoldenPerformanceLargeTestFile)
-		t.Logf("Large test file read in %v", duration)
-
-		// Should be reasonably fast
-		if duration > 5*time.Second {
-			t.Logf("Note: File read took %v (expected < 5s)", duration)
-		}
-
-		t.Log("Large test file handling completed")
-	})
-
 	t.Run("SearchInTestFiles", func(t *testing.T) {
 		// Test: Search across test files
 		start := time.Now()

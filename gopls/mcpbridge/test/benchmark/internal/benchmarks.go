@@ -714,42 +714,7 @@ func BenchmarkErrorDetection(ctx context.Context, session *mcp.ClientSession, pr
 }
 
 // ===================================================================
-// Category 6: File Reading Consistency
-// ===================================================================
-
-func BenchmarkFileReading(ctx context.Context, session *mcp.ClientSession, projectDir string) []BenchmarkResult {
-	testFile := filepath.Join(projectDir, "internal", "golang", "implementation.go")
-
-	cases := []simpleBenchmarkCase{
-		{
-			name:     "Read File via gopls",
-			category: "File Reading",
-			tool:     "go_read_file",
-			args: func(projectDir string) map[string]any {
-				return map[string]any{
-					"file": testFile,
-				}
-			},
-			validate: func(content string) (int, int, error) {
-				return 0, len(content), nil
-			},
-		},
-	}
-
-	var results []BenchmarkResult
-	for _, tc := range cases {
-		result := runSimpleBenchmark(ctx, session, projectDir, tc)
-		if result.Success {
-			result.ComparisonNote = fmt.Sprintf("gopls snapshot.ReadFile: %v | Note: Uses gopls file reading API", result.Duration)
-		}
-		results = append(results, result)
-	}
-
-	return results
-}
-
-// ===================================================================
-// Category 7: Comparison with Traditional Tools
+// Category 6: Comparison with Traditional Tools
 // ===================================================================
 
 func BenchmarkComparisonWithTraditionalTools(ctx context.Context, session *mcp.ClientSession, projectDir string) []BenchmarkResult {

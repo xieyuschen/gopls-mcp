@@ -278,27 +278,6 @@ func TestRealWorkflow_ErrorScenarios(t *testing.T) {
 		t.Log("Definition for stdlib symbol handled")
 	})
 
-	t.Run("LargeFileAnalysis", func(t *testing.T) {
-		// Test: Analyze a large file (handlers.go is ~1378 lines)
-		largeFilePath := filepath.Join(globalGoplsMcpDir, "core", "handlers.go")
-
-		// Read the file
-		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-			Name: "go_read_file",
-			Arguments: map[string]any{
-				"file": largeFilePath,
-			},
-		})
-		if err != nil {
-			t.Fatalf("Failed to call go_read_file: %v", err)
-		}
-		readResult := testutil.ResultText(t, res, testutil.GoldenWorkflowErrorScenarios)
-		t.Logf("Large file read (size):\n%s", testutil.TruncateString(readResult, 500))
-
-		if !strings.Contains(readResult, "package") {
-			t.Error("Expected Go code in file")
-		}
-	})
 }
 
 // TestRealWorkflow_MultiPackageAnalysis tests working across multiple packages
@@ -528,32 +507,6 @@ func TestRealWorkflow_DiagnosticsAndQuality(t *testing.T) {
 		// Should complete without errors
 		if !strings.Contains(content, "packages") && !strings.Contains(content, "diagnostics") {
 			t.Error("Expected diagnostic summary")
-		}
-	})
-
-	t.Run("FindHotspots", func(t *testing.T) {
-		// Test: Find files with lots of code (potential complexity hotspots)
-
-		// Read handlers.go
-		handlersPath := filepath.Join(globalGoplsMcpDir, "core", "handlers.go")
-
-		// Read the file to check its size
-		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-			Name: "go_read_file",
-			Arguments: map[string]any{
-				"file": handlersPath,
-			},
-		})
-		if err != nil {
-			t.Fatalf("Failed to read file: %v", err)
-		}
-
-		content := testutil.ResultText(t, res, testutil.GoldenWorkflowDiagnostics)
-		t.Logf("File info (size: %d chars):\n%s", len(content), testutil.TruncateString(content, 500))
-
-		// Verify we got content
-		if !strings.Contains(content, "package") {
-			t.Error("Expected Go code in file")
 		}
 	})
 }

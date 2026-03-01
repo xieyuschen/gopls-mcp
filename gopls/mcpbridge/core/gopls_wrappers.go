@@ -821,80 +821,6 @@ func handleGoImplementation(ctx context.Context, h *Handler, req *mcp.CallToolRe
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: summary}}}, result, nil
 }
 
-// ===== go_read_file =====
-// Origin: NEW - reads file content using gopls snapshot
-//
-// CRITICAL: This uses snapshot.ReadFile() instead of os.ReadFile to ensure:
-// 1. Content matches what gopls used for AST/type analysis
-// 2. Line numbers match other tools (implementation, diagnostics, etc.)
-// Note: Overlays (unsaved editor changes) are not currently supported by the MCP server
-
-func handleGoReadFile(ctx context.Context, h *Handler, req *mcp.CallToolRequest, input api.IReadFileParams) (*mcp.CallToolResult, *api.OReadFileResult, error) {
-	uri := protocol.URIFromPath(input.File)
-	snapshot, release, err := h.snapshot()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get snapshot: %v", err)
-	}
-	defer release()
-
-	// Use snapshot.ReadFile to get file handle from gopls
-	fh, err := snapshot.ReadFile(ctx, uri)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read file: %v", err)
-	}
-
-	// Read content from disk
-	contentBytes, err := fh.Content()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get file content: %v", err)
-	}
-
-	fullContent := string(contentBytes)
-	totalLines := len(strings.Split(fullContent, "\n"))
-	totalBytes := len(contentBytes)
-
-	// Determine starting line (1-indexed, default to 1 if not specified or invalid)
-	startLine := input.Offset
-	if startLine < 1 {
-		startLine = 1
-	}
-
-	// Apply truncation limits
-	truncatedContent, _, truncationErr := TruncateFileContent(
-		fullContent,
-		input.MaxBytes,
-		input.MaxLines,
-		startLine,
-	)
-
-	// Build the result with truncated content
-	result := &api.OReadFileResult{
-		Content:    truncatedContent,
-		TotalLines: totalLines,
-		TotalBytes: totalBytes,
-	}
-
-	// Build summary message
-	var summaryMsg string
-	if truncationErr != "" {
-		summaryMsg = fmt.Sprintf("Read %s: %s", input.File, truncationErr)
-	} else {
-		// Include offset information if starting from a line other than 1
-		if startLine > 1 {
-			summaryMsg = fmt.Sprintf("Read %s from line %d (%d bytes, %d total lines)",
-				input.File, startLine, totalBytes, totalLines)
-		} else {
-			summaryMsg = fmt.Sprintf("Read %s (%d bytes, %d lines)",
-				input.File, totalBytes, totalLines)
-		}
-	}
-
-	// Build display content
-	summary := fmt.Sprintf("%s\n%s", summaryMsg, truncatedContent)
-
-	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: summary}}}, result, nil
-}
-
 // handleListTools returns documentation for all available MCP tools.
 // This allows AI agents to discover what tools are available and how to use them.
 func handleListTools(ctx context.Context, h *Handler, req *mcp.CallToolRequest, input api.IListToolsParams) (*mcp.CallToolResult, *api.OListToolsResult, error) {
@@ -1005,7 +931,6 @@ func categorizeTool(name string) string {
 	case strings.HasPrefix(name, "list_") || strings.HasPrefix(name, "fetch_"),
 		strings.HasPrefix(name, "go_list_"),
 		name == "go_get_package_symbol_detail",
-		name == "go_read_file",
 		name == "go_get_started":
 		return "information"
 
@@ -1146,38 +1071,6 @@ func getToolSchemas(toolName string) map[string]map[string]any {
 				"locations": map[string]any{
 					"type":        "array",
 					"description": "Implementation locations",
-				},
-			},
-		}
-
-	case "go_read_file":
-		schemas["input"] = map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"file": map[string]any{
-					"type":        "string",
-					"description": "File path",
-				},
-				"max_bytes": map[string]any{
-					"type":        "integer",
-					"description": "Maximum bytes to return (0 = unlimited)",
-				},
-				"max_lines": map[string]any{
-					"type":        "integer",
-					"description": "Maximum lines to return (0 = unlimited)",
-				},
-				"offset": map[string]any{
-					"type":        "integer",
-					"description": "Starting line number (1-indexed, default: 1)",
-				},
-			},
-		}
-		schemas["output"] = map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"content": map[string]any{
-					"type":        "string",
-					"description": "File content from disk",
 				},
 			},
 		}
