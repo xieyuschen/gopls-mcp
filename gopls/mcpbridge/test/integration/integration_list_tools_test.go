@@ -40,7 +40,6 @@ func TestListToolsE2E(t *testing.T) {
 			"go_search",
 			"go_get_package_symbol_detail",
 			"go_implementation",
-			"go_read_file",
 		}
 
 		for _, keyTool := range keyTools {

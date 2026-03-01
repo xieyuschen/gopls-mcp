@@ -43,7 +43,7 @@ jobs:
 
       - name: Run tests
         working-directory: ./gopls/mcpbridge
-        run: go test -v ./...
+        run: go test ./...
 
       - name: Upload test results
         if: always()

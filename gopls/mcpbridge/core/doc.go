@@ -121,13 +121,6 @@ var docMap = map[string]string{
 **See also**: go_symbol_references for finding usages.
 `,
 
-	ToolGoReadFile: `Read file content through gopls.
-
-**When to use**: You need to see actual code or implementation details.
-
-**Note**: Unsaved editor changes are not included. This reads from disk.
-`,
-
 	ToolGoDefinition: `Jump to the definition of a symbol.
 
 **When to use**: You see a function call or type reference and need to find where it's defined.

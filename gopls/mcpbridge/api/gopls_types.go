@@ -190,29 +190,6 @@ type OImplementationResult struct {
 	Summary string `json:"summary" jsonschema:"implementation results summary"`
 }
 
-// IReadFileParams is the input for go_read_file tool.
-type IReadFileParams struct {
-	// File is the absolute path to the file to read.
-	File string `json:"file" jsonschema:"the absolute path to the file"`
-	// MaxBytes limits the number of bytes returned. If 0 or not set, returns all content.
-	MaxBytes int `json:"max_bytes,omitempty" jsonschema:"maximum bytes to return (default: 0 = unlimited)"`
-	// MaxLines limits the number of lines returned. If 0 or not set, returns all content.
-	MaxLines int `json:"max_lines,omitempty" jsonschema:"maximum lines to return (default: 0 = unlimited)"`
-	// Offset specifies the starting line number (1-indexed). If 0 or not set, starts from line 1.
-	Offset int `json:"offset,omitempty" jsonschema:"starting line number (1-indexed, default: 1)"`
-}
-
-// OReadFileResult is the output for go_read_file tool.
-type OReadFileResult struct {
-	// Content is the file content (potentially truncated).
-	// Note: This includes any unsaved changes (overlays) from the editor.
-	Content string `json:"content" jsonschema:"the file content including unsaved changes (truncated if limits were specified)"`
-	// TotalLines is the total number of lines in the file (for reference).
-	TotalLines int `json:"total_lines,omitempty" jsonschema:"total number of lines in the file"`
-	// TotalBytes is the total number of bytes in the file (for reference).
-	TotalBytes int `json:"total_bytes,omitempty" jsonschema:"total number of bytes in the file"`
-}
-
 // IListToolsParams is the input for list_tools tool.
 type IListToolsParams struct {
 	// IncludeInputSchema indicates whether to include the JSON schema for input parameters.

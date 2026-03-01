@@ -210,24 +210,21 @@ func runBenchmarks(ctx context.Context, session *mcp.ClientSession, projectDir s
 	result := internal.BenchmarkErrorDetection(ctx, session, projectDir)
 	results = append(results, result)
 
-	// Category 6: File Reading Consistency
-	results = append(results, internal.BenchmarkFileReading(ctx, session, projectDir)...)
-
 	if compareWith {
-		// Category 7: Comparison with Traditional Tools
+		// Category 6: Comparison with Traditional Tools
 		results = append(results, internal.BenchmarkComparisonWithTraditionalTools(ctx, session, projectDir)...)
 
-		// Category 9: Go Definition (Code Navigation)
+		// Category 7: Go Definition (Code Navigation)
 		results = append(results, internal.BenchmarkGoDefinition(ctx, session, projectDir)...)
 
-		// Category 11: Symbol References
+		// Category 8: Symbol References
 		// results = append(results, internal.BenchmarkSymbolReferences(ctx, session, projectDir)...)
 
-		// Category 12: List Modules
+		// Category 9: List Modules
 		results = append(results, internal.BenchmarkListModules(ctx, session, projectDir)...)
 	}
 
-	// Category 13: Dependency Graph (always run, no comparison)
+	// Category 10: Dependency Graph (always run, no comparison)
 	results = append(results, internal.BenchmarkDependencyGraph(ctx, session, projectDir)...)
 
 	return results

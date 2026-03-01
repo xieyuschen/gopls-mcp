@@ -35,27 +35,6 @@ func main() {
 			t.Fatal(err)
 		}
 
-		t.Run("GoReadFile_NonExistent", func(t *testing.T) {
-			tool := "go_read_file"
-			args := map[string]any{
-				"file": "/nonexistent/path/to/file.go",
-			}
-
-			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
-
-			// Should error gracefully, not crash
-			if err != nil {
-				t.Logf("Expected error for nonexistent file: %v", err)
-			} else if res != nil {
-				content := testutil.ResultText(t, res, testutil.GoldenErrorHandling)
-				if !strings.Contains(content, "not found") &&
-					!strings.Contains(content, "no such file") &&
-					!strings.Contains(content, "error") {
-					t.Logf("Warning: Tool didn't error for nonexistent file: %s", content)
-				}
-			}
-		})
-
 		t.Run("GoSymbolReferences_NonExistentFile", func(t *testing.T) {
 			tool := "go_symbol_references"
 			args := map[string]any{

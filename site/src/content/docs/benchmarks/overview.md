@@ -271,7 +271,6 @@ go run reportgen/main.go benchmark_results.json > RESULTS.md
 
 - **Function Bodies** (`include_bodies: true`) - AI can learn implementation patterns
 - **Type Hierarchy** (`go_implementation`) - Find interface implementations
-- **Overlays** (`go_read_file`) - Read files with unsaved editor changes
 
 ### 2. Semantic Understanding
 
