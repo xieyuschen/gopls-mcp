@@ -18,3 +18,5 @@ gopls/mcpbridge/test/benchmark/RESULTS_COMPACT.md
 gopls-mcp
 gopls/mcpbridge/test/e2e/testdata/golden
 gopls/mcpbridge/test/integration/testdata/golden/
+.mcpregistry_github_token
+.mcpregistry_registry_token
