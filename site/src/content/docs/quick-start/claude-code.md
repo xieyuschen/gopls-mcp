@@ -32,7 +32,7 @@ Claude needs specific instructions to know when to use the semantic tools. Run t
 The script creates the file if it doesn't exist; preserves content if it does)
 
 ```bash
-curl -sL https://gopls-mcp.org/CLAUDE.md >> CLAUDE.md
+curl -sL https://gopls-mcp.org/gopls-mcp.prompt >> CLAUDE.md
 ```
 
 ### Verify gopls-mcp
