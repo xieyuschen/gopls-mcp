@@ -9,6 +9,10 @@ Unlike standard retrieval tools that flood the context window with irrelevant te
 
 By providing only the scientifically accurate definitions and references, it maximizes your model's attention span and keeps the reasoning chain pure. Zero noise, absolute structural accuracy, and instant response times.
 
+<a href="https://glama.ai/mcp/servers/@xieyuschen/gopls-mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@xieyuschen/gopls-mcp/badge" alt="gopls-mcp MCP server" />
+</a>
+
 ## Contribute
 
 The project is actively developing, and feel free to raise PRs or issues if you find anything to improve.
