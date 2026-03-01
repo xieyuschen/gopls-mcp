@@ -259,4 +259,4 @@ Finally, the agent applies the findings by attempting to update the code to use 
 
 ### Resources
 
-[Raw Claude Thread](/semantic-pattern-adoption-raw-thread.md)
+[Raw Claude Thread](/semantic-pattern-adoption-raw-thread)

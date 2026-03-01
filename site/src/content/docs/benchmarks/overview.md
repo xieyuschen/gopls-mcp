@@ -10,8 +10,8 @@ gopls-mcp maintains a persistent process architecture, shifting the workload fro
 
 ## Documentation
 
-- **[RESULTS.md](./results/)** - Latest benchmark results, speedup factors, and variance analysis
-- **[METHODOLOGY.md](./methodology/)** - Complete benchmark methodology, statistical approach, and interpretation guide
+- **[RESULTS.md](../results/)** - Latest benchmark results, speedup factors, and variance analysis
+- **[METHODOLOGY.md](../methodology/)** - Complete benchmark methodology, statistical approach, and interpretation guide
 
 ## Quick Start
 
@@ -79,7 +79,7 @@ The benchmark suite tests **13 operations across 7 categories**:
 - Comparison is valid for user workflow ("check for errors") but not functionally equivalent
 - Measured on warm cache only (first query is slower due to initialization)
 
-**See [RESULTS.md](./results/) for actual measured numbers with variance metrics.**
+**See [RESULTS.md](../results/) for actual measured numbers with variance metrics.**
 
 ### Important Caveats
 
@@ -345,9 +345,3 @@ When adding new benchmarks:
 - First-query cost measurement (cold start)
 
 See METHODOLOGY.md section 10 for detailed recommendations.
-
-## Further Reading
-
-- **[CHANGES.md](../CHANGES.md)** - Detailed feature explanations
-- **[DETAILED_API.md](../DETAILED_API.md)** - Complete API documentation
-- **[AI_GUIDE.md](../AI_GUIDE.md)** - Usage guide for AI assistants
