@@ -64,16 +64,7 @@ func TestGoSearchE2E(t *testing.T) {
 				"query": "",
 			},
 			assertions: []assertion{
-				assertCustom(
-					"empty query handled gracefully",
-					func(content string) bool {
-						// Empty query should return no symbols or all symbols
-						return strings.Contains(content, "No symbols found") ||
-							strings.Contains(content, "Found 0 symbol") ||
-							strings.Contains(content, "Found")
-					},
-					"empty query should be handled gracefully",
-				),
+				assertContains("go_search requires a non-empty symbol name"),
 			},
 		},
 		"VeryLongQuery": {
