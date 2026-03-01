@@ -9,8 +9,36 @@ export default defineConfig({
 		sitemap(),
 		starlight({
 			title: 'gopls-mcp',
-			description: 'Semantic Go code understanding for AI assistants',
+			description: 'Semantic Go code understanding for AI Code Agents',
+			favicon: '/logo.png',
 			pagination: false,
+			logo: {
+				src: './public/logo.png',
+				alt: 'gopls-mcp',
+			},
+			head: [
+				{
+					tag: 'meta',
+					attributes: {
+						property: 'og:image',
+						content: '/logo.png',
+					},
+				},
+				{
+					tag: 'meta',
+					attributes: {
+						name: 'twitter:image',
+						content: '/logo.png',
+					},
+				},
+				{
+					tag: 'meta',
+					attributes: {
+						name: 'twitter:card',
+						content: 'summary_large_image',
+					},
+				},
+			],
 			social: [
 				{ label: 'GitHub', href: 'https://github.com/xieyuschen/gopls-mcp', icon: 'github' }
 			],

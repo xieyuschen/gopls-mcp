@@ -1,1 +1,0 @@
-../../gopls/gopls-mcp.prompt
