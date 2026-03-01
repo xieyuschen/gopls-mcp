@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   goreleaser:
@@ -41,6 +42,33 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  publish-to-mcp-registry:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz -C /tmp mcp-publisher
+
+      - name: Validate server.json
+        run: |
+          /tmp/mcp-publisher validate
+
+      - name: Login to MCP Registry (GitHub OIDC)
+        run: |
+          /tmp/mcp-publisher login github <<EOF
+          oidc
+          EOF
+
+      - name: Publish to MCP Registry
+        env:
+          GOPLS_MCP_VERSION: ${{ needs.goreleaser.outputs.version }}
+        run: |
+          /tmp/mcp-publisher publish
+          
   post-release:
     needs: goreleaser
     runs-on: ${{ matrix.os }}
