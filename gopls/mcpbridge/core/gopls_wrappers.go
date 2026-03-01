@@ -473,19 +473,12 @@ func handleGoDiagnostics(ctx context.Context, h *Handler, req *mcp.CallToolReque
 // Origin: gopls/internal/mcp/search.go searchHandler()
 
 func handleGoSearch(ctx context.Context, h *Handler, req *mcp.CallToolRequest, input api.ISearchParams) (*mcp.CallToolResult, *api.OSearchResult, error) {
-	// Handle empty query gracefully
-	if input.Query == "" {
-		result := &api.OSearchResult{
-			Summary: "No symbols found - empty query",
+	// Validate query first - fail fast if input is invalid (including empty)
+	if errMsg := validateSearchQuery(input.Query); errMsg != "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: errMsg}}}, &api.OSearchResult{
+			Summary: errMsg,
 			Symbols: []*api.Symbol{},
-		}
-		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: result.Summary}}}, result, nil
-	}
-
-	// Validate query: go_search only accepts symbol names (no spaces or dots)
-	// This prevents natural language queries which don't work with symbol search
-	if strings.Contains(input.Query, " ") || strings.Contains(input.Query, ".") {
-		return nil, nil, fmt.Errorf("invalid query: go_search accepts only a single symbol name (no spaces or dots). query=%q", input.Query)
+		}, nil
 	}
 
 	var snapshot *cache.Snapshot
@@ -516,24 +509,19 @@ func handleGoSearch(ctx context.Context, h *Handler, req *mcp.CallToolRequest, i
 		return nil, nil, fmt.Errorf("failed to search workspace symbols: %v", err)
 	}
 
-	// Build summary
-	summary := buildSearchSummary(symbols, input.MaxResults)
-
-	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: summary}}}, &api.OSearchResult{
-		Summary: summary,
-		Symbols: symbols,
-	}, nil
-}
-
-// buildSearchSummary builds a human-readable summary of search results.
-func buildSearchSummary(symbols []*api.Symbol, maxResults int) string {
+	// Handle empty results
 	if len(symbols) == 0 {
-		return "No symbols found."
+		errMsg := emptyResultsError(input.Cwd)
+		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: errMsg}}}, &api.OSearchResult{
+			Summary: errMsg,
+			Symbols: symbols,
+		}, nil
 	}
 
+	// Format successful search results
 	var summary string
-	if len(symbols) > maxResults {
-		summary = fmt.Sprintf("Found %d symbol(s) (showing first %d):\n", len(symbols), maxResults)
+	if len(symbols) > input.MaxResults {
+		summary = fmt.Sprintf("Found %d symbol(s) (showing first %d):\n", len(symbols), input.MaxResults)
 	} else {
 		summary = fmt.Sprintf("Found %d symbol(s):\n", len(symbols))
 	}
@@ -542,11 +530,14 @@ func buildSearchSummary(symbols []*api.Symbol, maxResults int) string {
 		summary += fmt.Sprintf("  - %s (%s in %s:%d)\n", sym.Name, sym.Kind, sym.FilePath, sym.Line)
 	}
 
-	if len(symbols) > maxResults {
-		summary += fmt.Sprintf("... and %d more (use max_results for more)\n", len(symbols)-maxResults)
+	if len(symbols) > input.MaxResults {
+		summary += fmt.Sprintf("... and %d more (use max_results for more)\n", len(symbols)-input.MaxResults)
 	}
 
-	return summary
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: summary}}}, &api.OSearchResult{
+		Summary: summary,
+		Symbols: symbols,
+	}, nil
 }
 
 // ===== go_definition =====
