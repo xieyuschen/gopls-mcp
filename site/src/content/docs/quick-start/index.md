@@ -24,8 +24,8 @@ irm https://gopls-mcp.org/install.ps1 | iex
 
 Configure gopls-mcp with your code agent:
 
-- [Claude Code](./claude-code.md)
-- [Gemini CLI](./gemini-cli.md)
-- [Codex CLI](./codex.md)
+- [Claude Code](./claude-code)
+- [Gemini CLI](./gemini-cli)
+- [Codex CLI](./codex)
 
 ---

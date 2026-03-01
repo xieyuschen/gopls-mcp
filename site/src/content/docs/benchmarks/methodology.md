@@ -10,7 +10,7 @@ This document describes the benchmark methodology for evaluating gopls-mcp, a Mo
 
 **Scope:** This benchmark suite measures 12 operations across 7 categories. Direct tool-to-tool comparisons are available for 3 operations with statistical rigor (10 iterations each). Other operations report MCP tool execution times without comparison baselines.
 
-**Latest Results:** See [RESULTS.md](./RESULTS.md) for actual benchmark data, speedup factors, and variance analysis.
+**Latest Results:** See [RESULTS](../results) for actual benchmark data, speedup factors, and variance analysis.
 
 ---
 
@@ -1059,4 +1059,4 @@ This benchmark suite provides **measured execution times with statistical rigor*
 
 ---
 
-**For actual benchmark results and speedup factors, see [RESULTS.md](./RESULTS.md)**
+**For actual benchmark results and speedup factors, see [RESULTS](./results)**
