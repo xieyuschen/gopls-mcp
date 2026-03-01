@@ -10,7 +10,7 @@ Configure gopls-mcp with Codex CLI.
 
 ### Setup gopls-mcp for Your Project
 
-Ensure [codex-cli](https://github.com/codex-cli/codex) is installed, and run command below to add mcp server.
+Ensure [codex-cli](https://github.com/openai/codex) is installed, and run command below to add mcp server.
 
 ```bash
 codex mcp add gopls-mcp -- gopls-mcp
