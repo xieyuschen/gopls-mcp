@@ -14,4 +14,4 @@ By providing only the scientifically accurate definitions and references, it max
 The project is actively developing, and feel free to raise PRs or issues if you find anything to improve.
 AI generated code will also be accepted but do remember to narrow the change to a specfic feature for reviewer to quickly review them.
 
-*Disclaimer*: gopls-mcp is a hardfork of [gopls](https://tip.golang.org/gopls/) and is a community-driven project. It is not an official Go team product and is not affiliated with or endorsed by Google LLC. This project is licensed under the same BSD license as its  [upstream](https://go.googlesource.com/tools) source.
+*Disclaimer*: gopls-mcp is a fork of [gopls](https://tip.golang.org/gopls/) and is a community-driven project. It is not an official Go team product and is not affiliated with or endorsed by Google LLC. This project is licensed under the same BSD license as its  [upstream](https://go.googlesource.com/tools) source.
