@@ -220,7 +220,7 @@ func handleGetPackageSymbolDetail(ctx context.Context, h *Handler, req *mcp.Call
 
 	md, err := snapshot.LoadMetadataGraph(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load metadata: %v", err)
+		return nil, nil, fmt.Errorf("failed to load metadata: %w", err)
 	}
 
 	// Get the single package
@@ -438,7 +438,7 @@ func handleGoDiagnostics(ctx context.Context, h *Handler, req *mcp.CallToolReque
 
 	// Ensure metadata is loaded. This is critical for populating the workspace.
 	if _, err := snapshot.LoadMetadataGraph(ctx); err != nil {
-		return nil, nil, fmt.Errorf("failed to load metadata: %v", err)
+		return nil, nil, fmt.Errorf("failed to load metadata: %w", err)
 	}
 
 	// Get workspace package IDs
@@ -451,7 +451,7 @@ func handleGoDiagnostics(ctx context.Context, h *Handler, req *mcp.CallToolReque
 	// Get diagnostics (returns map[URI][]diagnostics)
 	reports, err := snapshot.PackageDiagnostics(ctx, ids...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("diagnostics failed: %v", err)
+		return nil, nil, fmt.Errorf("diagnostics failed: %w", err)
 	}
 
 	// Deduplicate diagnostics using native gopls hash
@@ -554,7 +554,7 @@ func handleGoSearch(ctx context.Context, h *Handler, req *mcp.CallToolRequest, i
 
 	symbols, err := golang.SearchWorkspaceSymbolsForLLM(ctx, snapshot, input.Query, input.MaxResults)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to search workspace symbols: %v", err)
+		return nil, nil, fmt.Errorf("failed to search workspace symbols: %w", err)
 	}
 
 	// Handle empty results
@@ -607,7 +607,7 @@ func handleGoDefinition(ctx context.Context, h *Handler, req *mcp.CallToolReques
 		IncludeDefinition: true,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to resolve symbol '%s': %v", input.Locator.SymbolName, err)
+		return nil, nil, fmt.Errorf("failed to resolve symbol '%s': %w", input.Locator.SymbolName, err)
 	}
 
 	if len(info.Locations) == 0 {
@@ -665,13 +665,13 @@ func handleGoSymbolReferences(ctx context.Context, h *Handler, req *mcp.CallTool
 	uri := protocol.URIFromPath(input.Locator.ContextFile)
 	fh, err := snapshot.ReadFile(ctx, uri)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read file %s: %v", input.Locator.ContextFile, err)
+		return nil, nil, fmt.Errorf("failed to read file %s: %w", input.Locator.ContextFile, err)
 	}
 
 	// Resolve the symbol using the semantic bridge
 	nodeResult, err := golang.ResolveNode(ctx, snapshot, fh, input.Locator)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to resolve symbol '%s': %v", input.Locator.SymbolName, err)
+		return nil, nil, fmt.Errorf("failed to resolve symbol '%s': %w", input.Locator.SymbolName, err)
 	}
 
 	// Get the package for the file to access the file set
@@ -695,7 +695,7 @@ func handleGoSymbolReferences(ctx context.Context, h *Handler, req *mcp.CallTool
 	// includeDeclaration=false to exclude the definition itself
 	locations, err := golang.References(ctx, snapshot, fh, position, false)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find references: %v", err)
+		return nil, nil, fmt.Errorf("failed to find references: %w", err)
 	}
 
 	// Extract rich Symbol information for the referenced symbol
@@ -777,7 +777,7 @@ func handleGoRenameSymbol(ctx context.Context, h *Handler, req *mcp.CallToolRequ
 	// Use the semantic bridge to generate both unified diff and line changes
 	unifiedDiff, lineChanges, err := golang.LLMRename(ctx, snapshot, input.Locator, input.NewName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to compute rename: %v", err)
+		return nil, nil, fmt.Errorf("failed to compute rename: %w", err)
 	}
 
 	// Build summary
@@ -809,7 +809,7 @@ func handleGoImplementation(ctx context.Context, h *Handler, req *mcp.CallToolRe
 	// LLMImplementation directly returns SourceContext with rich information
 	sourceContexts, err := golang.LLMImplementation(ctx, snapshot, input.Locator)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find implementations for '%s': %v", input.Locator.SymbolName, err)
+		return nil, nil, fmt.Errorf("failed to find implementations for '%s': %w", input.Locator.SymbolName, err)
 	}
 
 	// Convert SourceContext to Symbol (rich information including location)
@@ -1164,13 +1164,13 @@ func handleGoCallHierarchy(ctx context.Context, h *Handler, req *mcp.CallToolReq
 	uri := protocol.URIFromPath(input.Locator.ContextFile)
 	fh, err := snapshot.ReadFile(ctx, uri)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read file: %v", err)
+		return nil, nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
 	// Resolve the symbol using the semantic bridge
 	nodeResult, err := golang.ResolveNode(ctx, snapshot, fh, input.Locator)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to resolve symbol '%s': %v", input.Locator.SymbolName, err)
+		return nil, nil, fmt.Errorf("failed to resolve symbol '%s': %w", input.Locator.SymbolName, err)
 	}
 
 	// Get the package for the file to access the file set
@@ -1199,7 +1199,7 @@ func handleGoCallHierarchy(ctx context.Context, h *Handler, req *mcp.CallToolReq
 	// Get the call hierarchy item for this position
 	items, err := golang.PrepareCallHierarchy(ctx, snapshot, fh, position)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to prepare call hierarchy: %v", err)
+		return nil, nil, fmt.Errorf("failed to prepare call hierarchy: %w", err)
 	}
 
 	if len(items) == 0 {

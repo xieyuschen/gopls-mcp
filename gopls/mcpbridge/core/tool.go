@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -17,8 +18,9 @@ type GenericTool[In, Out any] struct {
 	Handler func(ctx context.Context, h *Handler, req *mcp.CallToolRequest, input In) (*mcp.CallToolResult, Out, error)
 }
 
+// Tool interface defines the contract for MCP tools.
 type Tool interface {
-	Docs() string
+	Docs() (string, error)
 	Register(server *mcp.Server, handler *Handler)
 	Details() (string, string)
 }
@@ -61,12 +63,12 @@ func (t GenericTool[In, Out]) Details() (name, description string) {
 	return t.Name, t.Description
 }
 
-func (t GenericTool[In, Out]) Docs() string {
+func (t GenericTool[In, Out]) Docs() (string, error) {
 	doc, ok := docMap[t.Name]
 	if !ok {
-		panic("documentation not found for tool: " + t.Name)
+		return "", fmt.Errorf("documentation not found for tool: %s", t.Name)
 	}
-	return doc
+	return doc, nil
 }
 
 // getTools returns the list of registered tools.

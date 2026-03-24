@@ -95,7 +95,7 @@ func (c *MCPConfig) ApplyGoplsOptions(opts *settings.Options) error {
 	_, errs := opts.Set(c.Gopls)
 	if len(errs) > 0 {
 		// Return the first error, but log all of them
-		return fmt.Errorf("failed to apply gopls options: %v (and %d more)", errs[0], len(errs)-1)
+		return fmt.Errorf("failed to apply gopls options: %w (and %d more)", errs[0], len(errs)-1)
 	}
 
 	return nil

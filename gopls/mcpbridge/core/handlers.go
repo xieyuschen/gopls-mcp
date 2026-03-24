@@ -372,7 +372,7 @@ func handleListModulePackages(ctx context.Context, h *Handler, req *mcp.CallTool
 
 	md, err := snapshot.LoadMetadataGraph(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load metadata graph: %v", err)
+		return nil, nil, fmt.Errorf("failed to load metadata graph: %w", err)
 	}
 
 	// Determine target module path
@@ -569,7 +569,7 @@ func handleGetStarted(ctx context.Context, h *Handler, req *mcp.CallToolRequest,
 
 	md, err := snapshot.LoadMetadataGraph(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load metadata graph: %v", err)
+		return nil, nil, fmt.Errorf("failed to load metadata graph: %w", err)
 	}
 
 	// Get module path
@@ -871,7 +871,7 @@ func handleGetDependencyGraph(ctx context.Context, h *Handler, req *mcp.CallTool
 
 	md, err := snapshot.LoadMetadataGraph(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load metadata graph: %v", err)
+		return nil, nil, fmt.Errorf("failed to load metadata graph: %w", err)
 	}
 
 	// Determine target package path

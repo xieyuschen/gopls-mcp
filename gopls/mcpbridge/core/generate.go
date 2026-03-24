@@ -56,7 +56,10 @@ func updateCLAUDEMD(path string) error {
 	}
 
 	// Find and replace content between markers
-	updated := replaceBetweenMarkers(string(content), toolRef)
+	updated, err := replaceBetweenMarkers(string(content), toolRef)
+	if err != nil {
+		return fmt.Errorf("replacing content between markers: %w", err)
+	}
 
 	// Write back
 	if err := os.WriteFile(path, []byte(updated), 0644); err != nil {
@@ -67,19 +70,19 @@ func updateCLAUDEMD(path string) error {
 }
 
 // replaceBetweenMarkers replaces content between AUTO-GEN-START and AUTO-GEN-END markers
-func replaceBetweenMarkers(content, newContent string) string {
+func replaceBetweenMarkers(content, newContent string) (string, error) {
 	startIdx := strings.Index(content, autoGenStartMarker)
 	if startIdx == -1 {
-		panic(fmt.Sprintf("marker %q not found in file", autoGenStartMarker))
+		return "", fmt.Errorf("marker %q not found in file", autoGenStartMarker)
 	}
 
 	endIdx := strings.Index(content, autoGenEndMarker)
 	if endIdx == -1 {
-		panic(fmt.Sprintf("marker %q not found in file", autoGenEndMarker))
+		return "", fmt.Errorf("marker %q not found in file", autoGenEndMarker)
 	}
 
 	if startIdx >= endIdx {
-		panic(fmt.Sprintf("start marker appears after end marker"))
+		return "", fmt.Errorf("start marker appears after end marker")
 	}
 
 	// Include the markers themselves in the replacement
@@ -92,5 +95,5 @@ func replaceBetweenMarkers(content, newContent string) string {
 	buf.WriteString(autoGenEndMarker)
 	buf.WriteString(content[endIdx+len(autoGenEndMarker):])
 
-	return buf.String()
+	return buf.String(), nil
 }

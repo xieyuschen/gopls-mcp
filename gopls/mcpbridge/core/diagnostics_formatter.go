@@ -21,7 +21,7 @@ func formatDiagnosticsFull(ctx context.Context, snapshot *cache.Snapshot, ids []
 	// Get diagnostics for all packages
 	diagMap, err := snapshot.PackageDiagnostics(ctx, ids...)
 	if err != nil {
-		return nil, nil, 0, 0, fmt.Errorf("failed to get diagnostics: %v", err)
+		return nil, nil, 0, 0, fmt.Errorf("failed to get diagnostics: %w", err)
 	}
 
 	// Process diagnostics for each package

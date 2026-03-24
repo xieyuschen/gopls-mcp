@@ -21,7 +21,7 @@ func symbolLocation(ctx context.Context, snapshot *cache.Snapshot, uri protocol.
 	// invalid inputs.
 	e, err := parser.ParseExpr(symbol)
 	if err != nil {
-		return protocol.Location{}, fmt.Errorf("\"symbol\" failed to parse: %v", err)
+		return protocol.Location{}, fmt.Errorf("symbol failed to parse: %w", err)
 	}
 	path, err := extractPath(e)
 	if err != nil {
@@ -40,7 +40,7 @@ func symbolLocation(ctx context.Context, snapshot *cache.Snapshot, uri protocol.
 
 	loc, err := golang.ObjectLocation(ctx, pkg.FileSet(), snapshot, target)
 	if err != nil {
-		return protocol.Location{}, fmt.Errorf("finding symbol location: %v", err)
+		return protocol.Location{}, fmt.Errorf("finding symbol location: %w", err)
 	}
 	return loc, nil
 }

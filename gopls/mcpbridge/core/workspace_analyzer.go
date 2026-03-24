@@ -37,7 +37,7 @@ func handleAnalyzeWorkspace(ctx context.Context, h *Handler, req *mcp.CallToolRe
 
 	snapshot, release, err := view.Snapshot()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get snapshot: %v", err)
+		return nil, nil, fmt.Errorf("failed to get snapshot: %w", err)
 	}
 	defer release()
 
@@ -47,7 +47,7 @@ func handleAnalyzeWorkspace(ctx context.Context, h *Handler, req *mcp.CallToolRe
 	// Discover all packages
 	allPackages, err := discoverPackages(ctx, snapshot, view)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to discover packages: %v", err)
+		return nil, nil, fmt.Errorf("failed to discover packages: %w", err)
 	}
 
 	// Find all entry points
