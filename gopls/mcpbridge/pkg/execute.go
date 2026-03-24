@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -75,6 +76,14 @@ const (
 
 func Execute() {
 	helpAndUsage()
+
+	// Pre-flight check: verify Go toolchain is available before configuring logging.
+	// This must run BEFORE log.SetOutput(io.Discard) in stdio mode, because
+	// log.Fatalf would write to void and the user would see no error at all.
+	if err := checkGoEnv(); err != nil {
+		fmt.Fprintf(os.Stderr, "[gopls-mcp] %v\n", err)
+		os.Exit(1)
+	}
 
 	// Configure logging based on transport mode
 	// CRITICAL: In stdio mode, NEVER log to stdout/stderr as it corrupts MCP protocol
@@ -313,4 +322,36 @@ func helpAndUsage() {
 		flag.Usage()
 		os.Exit(0)
 	}
+}
+
+// checkGoEnv verifies that the Go toolchain is available and functional.
+// It must be called before log output is redirected (e.g. to io.Discard in stdio mode),
+// so that errors are always visible via stderr.
+func checkGoEnv() error {
+	// 1. Check that the "go" binary is reachable via PATH.
+	goPath, err := exec.LookPath("go")
+	if err != nil {
+		return fmt.Errorf("go command not found in PATH: %v\n"+
+			"Please install Go (https://go.dev/dl/) or ensure it is in your PATH.", err)
+	}
+
+	// 2. Verify that "go" can actually execute (e.g. not a broken symlink).
+	cmd := exec.Command(goPath, "version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("go version failed: %v\n"+
+			"Output: %s\n"+
+			"Please verify your Go installation at %s.", err, strings.TrimSpace(string(output)), goPath)
+	}
+
+	// 3. Check GOROOT — if go env GOROOT fails, the toolchain is misconfigured.
+	cmd = exec.Command(goPath, "env", "GOROOT")
+	output, err = cmd.CombinedOutput()
+	if err != nil || strings.TrimSpace(string(output)) == "" {
+		return fmt.Errorf("go env GOROOT failed: %v\n"+
+			"Output: %s\n"+
+			"Please check your Go installation (GOROOT=%s).", err, strings.TrimSpace(string(output)), os.Getenv("GOROOT"))
+	}
+
+	return nil
 }
