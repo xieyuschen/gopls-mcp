@@ -26,6 +26,185 @@ import (
 // Origin: gopls/internal/mcp/*.go handlers are wrapped here
 
 // ===== get_package_symbol_detail =====
+// ===== Common Helpers =====
+// Extracted from repeated patterns to eliminate code duplication.
+
+// buildRichSymbol creates an api.Symbol from a CallHierarchyItem and enriches it
+// with rich information (signature, doc, receiver, body, package path) extracted
+// via golang.ExtractSymbolAtDefinition. This pattern was repeated 3 times in the
+// call hierarchy handler.
+func buildRichSymbol(ctx context.Context, snapshot *cache.Snapshot, name string, kind protocol.SymbolKind, uri protocol.URI, rng protocol.Range, pkgPath string) api.Symbol {
+	symbol := api.Symbol{
+		Name:        name,
+		Kind:        golang.ConvertLSPSymbolKind(kind),
+		PackagePath: pkgPath,
+		FilePath:    string(protocol.DocumentURI(uri).Path()),
+		Line:        int(rng.Start.Line + 1),
+	}
+
+	loc := protocol.Location{URI: protocol.DocumentURI(uri), Range: rng}
+	richSymbol := golang.ExtractSymbolAtDefinition(ctx, snapshot, loc, false)
+	if richSymbol != nil && richSymbol.Name != "<symbol>" {
+		symbol.Signature = richSymbol.Signature
+		symbol.Doc = richSymbol.Doc
+		symbol.Receiver = richSymbol.Receiver
+		symbol.Body = richSymbol.Body
+		if richSymbol.PackagePath != "" {
+			symbol.PackagePath = richSymbol.PackagePath
+		}
+	}
+
+	return symbol
+}
+
+// pkgPathForFile returns the package path for the given file URI, or empty string on error.
+func pkgPathForFile(ctx context.Context, snapshot *cache.Snapshot, uri protocol.DocumentURI) string {
+	if pkg, _, err := golang.NarrowestPackageForFile(ctx, snapshot, uri); err == nil && pkg != nil {
+		return string(pkg.Metadata().PkgPath)
+	}
+	return ""
+}
+
+// buildCallRanges converts protocol ranges to api.CallRange slice.
+func buildCallRanges(file string, ranges []protocol.Range) []api.CallRange {
+	callRanges := make([]api.CallRange, 0, len(ranges))
+	for _, rng := range ranges {
+		callRanges = append(callRanges, api.CallRange{
+			File:      file,
+			StartLine: int(rng.Start.Line + 1),
+			EndLine:   int(rng.End.Line + 1),
+		})
+	}
+	return callRanges
+}
+
+// formatCallHierarchySection formats a list of call hierarchy entries into a summary string.
+// This was duplicated for incoming and outgoing calls (~40 lines each).
+func formatCallHierarchySection(title string, calls []api.CallHierarchyCall) string {
+	if len(calls) == 0 {
+		return title + ": None\n"
+	}
+
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("%s (%d):\n", title, len(calls)))
+	for i, call := range calls {
+		b.WriteString(fmt.Sprintf("  %d. %s at %s:%d\n", i+1, call.From.Name, call.From.FilePath, call.From.Line))
+
+		if call.From.PackagePath != "" {
+			b.WriteString(fmt.Sprintf("     package: %s\n", call.From.PackagePath))
+		}
+
+		if call.From.Signature != "" {
+			for _, sigLine := range strings.Split(call.From.Signature, "\n") {
+				if sigLine != "" {
+					b.WriteString(fmt.Sprintf("     %s\n", sigLine))
+				}
+			}
+		}
+
+		if call.From.Doc != "" {
+			for _, docLine := range strings.Split(call.From.Doc, "\n") {
+				if trimmed := strings.TrimSpace(docLine); trimmed != "" {
+					b.WriteString(fmt.Sprintf("     // %s\n", trimmed))
+					break
+				}
+			}
+		}
+
+		if len(call.CallRanges) > 1 {
+			b.WriteString(fmt.Sprintf("     (called %d times)\n", len(call.CallRanges)))
+		}
+	}
+	return b.String()
+}
+
+// buildDocBodyMaps extracts doc comments and body text from AST declarations,
+// returning maps keyed by fully-qualified symbol name (e.g., "(T).Method" for methods).
+// This was duplicated between handleGetPackageSymbolDetail and handleListPackageSymbols.
+// It reads and parses the file internally from the given protocol.URI.
+func buildDocBodyMaps(ctx context.Context, snapshot *cache.Snapshot, uri protocol.DocumentURI) (docMap, bodyMap map[string]string) {
+	fh, err := snapshot.ReadFile(ctx, uri)
+	if err != nil {
+		return nil, nil
+	}
+
+	pgf, err := snapshot.ParseGo(ctx, fh, parsego.Full)
+	if err != nil {
+		return nil, nil
+	}
+
+	docMap = make(map[string]string)
+	bodyMap = make(map[string]string)
+
+	for _, decl := range pgf.File.Decls {
+		var name, doc, body string
+
+		switch decl := decl.(type) {
+		case *ast.FuncDecl:
+			if decl.Name == nil {
+				continue
+			}
+			name = decl.Name.Name
+			if decl.Recv != nil && len(decl.Recv.List) > 0 {
+				recvType := types.ExprString(decl.Recv.List[0].Type)
+				name = fmt.Sprintf("(%s).%s", recvType, name)
+			}
+			if decl.Doc != nil {
+				doc = string(decl.Doc.Text())
+			}
+			body = golang.ExtractBodyText(pgf, decl.Body)
+
+		case *ast.GenDecl:
+			for _, spec := range decl.Specs {
+				switch spec := spec.(type) {
+				case *ast.TypeSpec:
+					if spec.Name == nil {
+						continue
+					}
+					name = spec.Name.Name
+					if spec.Doc != nil {
+						doc = string(spec.Doc.Text())
+					} else if decl.Doc != nil {
+						doc = string(decl.Doc.Text())
+					}
+
+				case *ast.ValueSpec:
+					if decl.Tok == token.CONST {
+						for _, n := range spec.Names {
+							if n.Name == "_" {
+								continue
+							}
+							name = n.Name
+							if spec.Doc != nil {
+								doc = string(spec.Doc.Text())
+							} else if decl.Doc != nil {
+								doc = string(spec.Doc.Text())
+							}
+							if doc != "" {
+								docMap[name] = doc
+							}
+						}
+						continue
+					}
+				}
+			}
+		}
+
+		if name != "" {
+			if doc != "" {
+				docMap[name] = doc
+			}
+			if body != "" {
+				bodyMap[name] = body
+			}
+		}
+	}
+
+	return docMap, bodyMap
+}
+
+
+// ===== get_package_symbol_detail =====
 // Origin: gopls/internal/mcp/outline.go outlineHandler()
 
 func handleGetPackageSymbolDetail(ctx context.Context, h *Handler, req *mcp.CallToolRequest, input api.IGetPackageSymbolDetailParams) (*mcp.CallToolResult, *api.OGetPackageSymbolDetailResult, error) {
@@ -33,28 +212,11 @@ func handleGetPackageSymbolDetail(ctx context.Context, h *Handler, req *mcp.Call
 	if len(input.SymbolFilters) == 0 {
 		return nil, nil, fmt.Errorf("symbol_filters is required for get_package_symbol_detail (this is a precision tool). Use list_package_symbols to get all symbols in a package")
 	}
-	var snapshot *cache.Snapshot
-	var release func()
-	var err error
-
-	// Use Cwd if provided, otherwise use default view
-	if input.Cwd != "" {
-		view, err := h.viewForDir(input.Cwd)
-		if err != nil {
-			return nil, nil, err
-		}
-		snapshot, release, err = view.Snapshot()
-		if err != nil {
-			return nil, nil, err
-		}
-		defer release()
-	} else {
-		snapshot, release, err = h.snapshot()
-		if err != nil {
-			return nil, nil, err
-		}
-		defer release()
+	snapshot, release, err := h.snapshotForDir(input.Cwd)
+	if err != nil {
+		return nil, nil, err
 	}
+	defer release()
 
 	md, err := snapshot.LoadMetadataGraph(ctx)
 	if err != nil {
@@ -81,94 +243,14 @@ func handleGetPackageSymbolDetail(ctx context.Context, h *Handler, req *mcp.Call
 			continue
 		}
 
-		// Parse the file to get AST for docs and bodies
-		pgf, err := snapshot.ParseGo(ctx, fh, parsego.Full)
-		if err != nil {
-			continue
-		}
-
 		// Get LSP symbols for structure
 		syms, err := golang.DocumentSymbols(ctx, snapshot, fh)
 		if err != nil {
 			continue
 		}
 
-		// Build a map of symbol positions to docs/bodies from AST
-		docMap := make(map[string]string)
-		bodyMap := make(map[string]string)
-
-		if includeDocs || includeBodies {
-			for _, decl := range pgf.File.Decls {
-				var name string
-				var doc string
-				var body string
-
-				switch decl := decl.(type) {
-				case *ast.FuncDecl:
-					if decl.Name == nil {
-						continue
-					}
-					name = decl.Name.Name
-					// Build receiver prefix for methods
-					if decl.Recv != nil && len(decl.Recv.List) > 0 {
-						recvType := types.ExprString(decl.Recv.List[0].Type)
-						name = fmt.Sprintf("(%s).%s", recvType, name)
-					}
-					// Extract documentation
-					if decl.Doc != nil {
-						doc = string(decl.Doc.Text())
-					}
-					// Extract body if requested
-					if includeBodies && decl.Body != nil {
-						body = golang.ExtractBodyText(pgf, decl.Body)
-					}
-
-				case *ast.GenDecl:
-					for _, spec := range decl.Specs {
-						switch spec := spec.(type) {
-						case *ast.TypeSpec:
-							if spec.Name == nil {
-								continue
-							}
-							name = spec.Name.Name
-							// Extract documentation
-							if spec.Doc != nil {
-								doc = string(spec.Doc.Text())
-							} else if decl.Doc != nil {
-								doc = string(decl.Doc.Text())
-							}
-
-						case *ast.ValueSpec:
-							if decl.Tok == token.CONST {
-								for _, n := range spec.Names {
-									if n.Name == "_" {
-										continue
-									}
-									name = n.Name
-									// Extract documentation
-									if spec.Doc != nil {
-										doc = string(spec.Doc.Text())
-									} else if decl.Doc != nil {
-										doc = string(decl.Doc.Text())
-									}
-									docMap[name] = doc
-								}
-								continue
-							}
-						}
-					}
-				}
-
-				if name != "" {
-					if doc != "" {
-						docMap[name] = doc
-					}
-					if body != "" {
-						bodyMap[name] = body
-					}
-				}
-			}
-		}
+			// Build doc/body maps from AST using shared helper
+			docMap, bodyMap := buildDocBodyMaps(ctx, snapshot, protocol.DocumentURI(uri))
 
 		// Convert symbols, adding docs and bodies from the AST
 		for _, sym := range syms {
@@ -348,28 +430,11 @@ func formatPackageSymbolsForAPI(result *api.OListPackageSymbols, includeDocs, in
 // Origin: gopls/internal/mcp/workspace_diagnostics.go workspaceDiagnosticsHandler()
 
 func handleGoDiagnostics(ctx context.Context, h *Handler, req *mcp.CallToolRequest, input api.IDiagnosticsParams) (*mcp.CallToolResult, *api.ODiagnosticsResult, error) {
-	var snapshot *cache.Snapshot
-	var release func()
-	var err error
-
-	// Use Cwd if provided, otherwise use default view
-	if input.Cwd != "" {
-		view, err := h.viewForDir(input.Cwd)
-		if err != nil {
-			return nil, nil, err
-		}
-		snapshot, release, err = view.Snapshot()
-		if err != nil {
-			return nil, nil, err
-		}
-		defer release()
-	} else {
-		snapshot, release, err = h.snapshot()
-		if err != nil {
-			return nil, nil, err
-		}
-		defer release()
+	snapshot, release, err := h.snapshotForDir(input.Cwd)
+	if err != nil {
+		return nil, nil, err
 	}
+	defer release()
 
 	// Ensure metadata is loaded. This is critical for populating the workspace.
 	if _, err := snapshot.LoadMetadataGraph(ctx); err != nil {
@@ -481,28 +546,11 @@ func handleGoSearch(ctx context.Context, h *Handler, req *mcp.CallToolRequest, i
 		}, nil
 	}
 
-	var snapshot *cache.Snapshot
-	var release func()
-	var err error
-
-	// Use Cwd if provided, otherwise use default view
-	if input.Cwd != "" {
-		view, err := h.viewForDir(input.Cwd)
-		if err != nil {
-			return nil, nil, err
-		}
-		snapshot, release, err = view.Snapshot()
-		if err != nil {
-			return nil, nil, err
-		}
-		defer release()
-	} else {
-		snapshot, release, err = h.snapshot()
-		if err != nil {
-			return nil, nil, err
-		}
-		defer release()
+	snapshot, release, err := h.snapshotForDir(input.Cwd)
+	if err != nil {
+		return nil, nil, err
 	}
+	defer release()
 
 	symbols, err := golang.SearchWorkspaceSymbolsForLLM(ctx, snapshot, input.Query, input.MaxResults)
 	if err != nil {
@@ -544,17 +592,12 @@ func handleGoSearch(ctx context.Context, h *Handler, req *mcp.CallToolRequest, i
 // Origin: gopls/internal/golang/definition.go Definition()
 
 func handleGoDefinition(ctx context.Context, h *Handler, req *mcp.CallToolRequest, input api.IDefinitionParams) (*mcp.CallToolResult, *api.ODefinitionResult, error) {
-	// Get the view for the directory containing the context file
+	// Get the snapshot for the directory containing the context file
 	// This is critical for cross-file definitions to work correctly
 	dir := filepath.Dir(input.Locator.ContextFile)
-	view, err := h.viewForDir(dir)
+	snapshot, release, err := h.snapshotForDir(dir)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get view for %s: %w", dir, err)
-	}
-
-	snapshot, release, err := view.Snapshot()
-	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to get snapshot for %s: %w", dir, err)
 	}
 	defer release()
 
@@ -1111,28 +1154,11 @@ func getToolSchemas(toolName string) map[string]map[string]any {
 // Refactored to use SymbolLocator + semantic bridge (ResolveNode)
 
 func handleGoCallHierarchy(ctx context.Context, h *Handler, req *mcp.CallToolRequest, input api.ICallHierarchyParams) (*mcp.CallToolResult, *api.OCallHierarchyResult, error) {
-	var snapshot *cache.Snapshot
-	var release func()
-	var err error
-
-	// Use Cwd if provided, otherwise use default view
-	if input.Cwd != "" {
-		view, err := h.viewForDir(input.Cwd)
-		if err != nil {
-			return nil, nil, err
-		}
-		snapshot, release, err = view.Snapshot()
-		if err != nil {
-			return nil, nil, err
-		}
-		defer release()
-	} else {
-		snapshot, release, err = h.snapshot()
-		if err != nil {
-			return nil, nil, err
-		}
-		defer release()
+	snapshot, release, err := h.snapshotForDir(input.Cwd)
+	if err != nil {
+		return nil, nil, err
 	}
+	defer release()
 
 	// Read the context file
 	uri := protocol.URIFromPath(input.Locator.ContextFile)
