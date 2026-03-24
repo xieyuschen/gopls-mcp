@@ -242,9 +242,7 @@ func Execute() {
 
 	// Create MCP server and register all gopls-mcp tools
 	server := mcp.NewServer(&mcp.Implementation{Name: mcpName, Version: version}, nil)
-	core.RegisterTools(server, coreHandler)
-
-	log.Printf("[gopls-mcp] Registered %d MCP tools for Go analysis", 18)
+	log.Printf("[gopls-mcp] Registered %d MCP tools for Go analysis", core.RegisterTools(server, coreHandler))
 	log.Printf("[gopls-mcp] Working directory: %s", projectDir)
 
 	if *addr != "" {

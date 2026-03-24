@@ -146,7 +146,7 @@ var tools = []Tool{
 // RegisterTools registers all tools with the MCP server.
 // The handler provides access to gopls's session and snapshot for all tool implementations.
 // Integration point: called from gopls/internal/cmd/mcp.go or gopls/internal/mcp/mcp.go
-func RegisterTools(server *mcp.Server, handler *Handler) {
+func RegisterTools(server *mcp.Server, handler *Handler) int {
 	// Register the list_tools meta-tool first (special case to avoid init cycle)
 	GenericTool[api.IListToolsParams, *api.OListToolsResult]{
 		Name:        ToolListTools,
@@ -155,9 +155,11 @@ func RegisterTools(server *mcp.Server, handler *Handler) {
 	}.Register(server, handler)
 
 	// Register all other tools
-	for _, tool := range getTools() {
+	tools := getTools()
+	for _, tool := range tools {
 		tool.Register(server, handler)
 	}
+	return 1 + len(tools) // 1 for list_tools meta-tool + registered tools
 }
 
 // GenerateReference writes the complete tool reference documentation to the provided writer.
