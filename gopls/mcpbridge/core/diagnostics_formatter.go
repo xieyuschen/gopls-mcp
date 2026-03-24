@@ -21,7 +21,7 @@ func formatDiagnosticsFull(ctx context.Context, snapshot *cache.Snapshot, ids []
 	// Get diagnostics for all packages
 	diagMap, err := snapshot.PackageDiagnostics(ctx, ids...)
 	if err != nil {
-		return nil, nil, 0, 0, fmt.Errorf("failed to get diagnostics: %v", err)
+		return nil, nil, 0, 0, fmt.Errorf("failed to get diagnostics: %w", err)
 	}
 
 	// Process diagnostics for each package
@@ -130,16 +130,4 @@ func formatDiagnosticsFull(ctx context.Context, snapshot *cache.Snapshot, ids []
 
 	content := []mcp.Content{&mcp.TextContent{Text: summary.String()}}
 	return &mcp.CallToolResult{Content: content}, &allReports, totalErrors, totalWarnings, nil
-}
-
-// formatDiagnosticsSimple creates a simpler summary without full details.
-// This is used as a fallback when full formatting fails.
-func formatDiagnosticsSimple(packageCount int, err error) *mcp.CallToolResult {
-	var summary string
-	if err != nil {
-		summary = fmt.Sprintf("Failed to get diagnostics: %v", err)
-	} else {
-		summary = fmt.Sprintf("Workspace diagnostics checked for %d packages.", packageCount)
-	}
-	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: summary}}}
 }

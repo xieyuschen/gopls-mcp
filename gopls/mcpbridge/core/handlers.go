@@ -3,9 +3,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"go/ast"
-	"go/token"
-	"go/types"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -107,6 +104,19 @@ func (h *Handler) snapshot() (*cache.Snapshot, func(), error) {
 		return nil, nil, fmt.Errorf("no active views")
 	}
 	return views[0].Snapshot()
+}
+
+// snapshotForDir returns a snapshot for the given directory, or the default snapshot if dir is empty.
+// This eliminates the repeated pattern:
+//
+//	if cwd != "" { view, err := h.viewForDir(cwd); snapshot, release, _ = view.Snapshot() }
+//	else { snapshot, release, _ = h.snapshot() }
+func (h *Handler) snapshotForDir(dir string) (*cache.Snapshot, func(), error) {
+	view, err := h.getView(dir)
+	if err != nil {
+		return nil, nil, err
+	}
+	return view.Snapshot()
 }
 
 // viewForDir finds the view that contains the given directory.
@@ -362,7 +372,7 @@ func handleListModulePackages(ctx context.Context, h *Handler, req *mcp.CallTool
 
 	md, err := snapshot.LoadMetadataGraph(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load metadata graph: %v", err)
+		return nil, nil, fmt.Errorf("failed to load metadata graph: %w", err)
 	}
 
 	// Determine target module path
@@ -451,12 +461,7 @@ func handleListModulePackages(ctx context.Context, h *Handler, req *mcp.CallTool
 // handleListPackageSymbols returns all symbols in a package.
 // Uses: snapshot.LoadMetadataGraph() and golang.DocumentSymbols() from gopls/internal/cache
 func handleListPackageSymbols(ctx context.Context, h *Handler, req *mcp.CallToolRequest, input api.IListPackageSymbols) (*mcp.CallToolResult, *api.OListPackageSymbols, error) {
-	view, err := h.getView(input.Cwd)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	snapshot, release, err := view.Snapshot()
+	snapshot, release, err := h.snapshotForDir(input.Cwd)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -464,7 +469,7 @@ func handleListPackageSymbols(ctx context.Context, h *Handler, req *mcp.CallTool
 
 	md, err := snapshot.LoadMetadataGraph(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load metadata graph: %v", err)
+		return nil, nil, fmt.Errorf("failed to load metadata graph: %w", err)
 	}
 
 	pkgPath := metadata.PackagePath(input.PackagePath)
@@ -487,94 +492,14 @@ func handleListPackageSymbols(ctx context.Context, h *Handler, req *mcp.CallTool
 			continue
 		}
 
-		// Parse the file to get AST for docs and bodies
-		pgf, err := snapshot.ParseGo(ctx, fh, parsego.Full)
-		if err != nil {
-			continue
-		}
-
 		// Get LSP symbols for structure
 		syms, err := golang.DocumentSymbols(ctx, snapshot, fh)
 		if err != nil {
 			continue
 		}
 
-		// Build a map of symbol positions to docs/bodies from AST
-		docMap := make(map[string]string)
-		bodyMap := make(map[string]string)
-
-		if includeDocs || includeBodies {
-			for _, decl := range pgf.File.Decls {
-				var name string
-				var doc string
-				var body string
-
-				switch decl := decl.(type) {
-				case *ast.FuncDecl:
-					if decl.Name == nil {
-						continue
-					}
-					name = decl.Name.Name
-					// Build receiver prefix for methods
-					if decl.Recv != nil && len(decl.Recv.List) > 0 {
-						recvType := types.ExprString(decl.Recv.List[0].Type)
-						name = fmt.Sprintf("(%s).%s", recvType, name)
-					}
-					// Extract documentation
-					if decl.Doc != nil {
-						doc = string(decl.Doc.Text())
-					}
-					// Extract body if requested
-					if includeBodies && decl.Body != nil {
-						body = golang.ExtractBodyText(pgf, decl.Body)
-					}
-
-				case *ast.GenDecl:
-					for _, spec := range decl.Specs {
-						switch spec := spec.(type) {
-						case *ast.TypeSpec:
-							if spec.Name == nil {
-								continue
-							}
-							name = spec.Name.Name
-							// Extract documentation
-							if spec.Doc != nil {
-								doc = string(spec.Doc.Text())
-							} else if decl.Doc != nil {
-								doc = string(decl.Doc.Text())
-							}
-
-						case *ast.ValueSpec:
-							if decl.Tok == token.CONST {
-								for _, n := range spec.Names {
-									if n.Name == "_" {
-										continue
-									}
-									name = n.Name
-									// Extract documentation
-									if spec.Doc != nil {
-										doc = string(spec.Doc.Text())
-									} else if decl.Doc != nil {
-										doc = string(decl.Doc.Text())
-									}
-									docMap[name] = doc
-								}
-								continue
-							}
-						}
-					}
-				}
-
-				if name != "" {
-					if doc != "" {
-						docMap[name] = doc
-					}
-					if body != "" {
-						bodyMap[name] = body
-					}
-				}
-			}
-		}
+			// Build doc/body maps from AST using shared helper
+			docMap, bodyMap := buildDocBodyMaps(ctx, snapshot, uri)
 
 		// Convert symbols, adding docs and bodies from the AST
 		for _, sym := range syms {
@@ -644,7 +569,7 @@ func handleGetStarted(ctx context.Context, h *Handler, req *mcp.CallToolRequest,
 
 	md, err := snapshot.LoadMetadataGraph(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load metadata graph: %v", err)
+		return nil, nil, fmt.Errorf("failed to load metadata graph: %w", err)
 	}
 
 	// Get module path
@@ -946,7 +871,7 @@ func handleGetDependencyGraph(ctx context.Context, h *Handler, req *mcp.CallTool
 
 	md, err := snapshot.LoadMetadataGraph(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load metadata graph: %v", err)
+		return nil, nil, fmt.Errorf("failed to load metadata graph: %w", err)
 	}
 
 	// Determine target package path

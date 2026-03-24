@@ -146,7 +146,7 @@ var tools = []Tool{
 // RegisterTools registers all tools with the MCP server.
 // The handler provides access to gopls's session and snapshot for all tool implementations.
 // Integration point: called from gopls/internal/cmd/mcp.go or gopls/internal/mcp/mcp.go
-func RegisterTools(server *mcp.Server, handler *Handler) {
+func RegisterTools(server *mcp.Server, handler *Handler) int {
 	// Register the list_tools meta-tool first (special case to avoid init cycle)
 	GenericTool[api.IListToolsParams, *api.OListToolsResult]{
 		Name:        ToolListTools,
@@ -155,9 +155,11 @@ func RegisterTools(server *mcp.Server, handler *Handler) {
 	}.Register(server, handler)
 
 	// Register all other tools
-	for _, tool := range getTools() {
+	tools := getTools()
+	for _, tool := range tools {
 		tool.Register(server, handler)
 	}
+	return 1 + len(tools) // 1 for list_tools meta-tool + registered tools
 }
 
 // GenerateReference writes the complete tool reference documentation to the provided writer.
@@ -195,12 +197,16 @@ These tools are type-aware, fast, and token-efficient compared to text-based alt
 `)
 
 	// Write each tool as a ### title with description
-	for _, tool := range tools {
-		name, des := tool.Details()
-		fmt.Fprintf(w, "### `%s`\n\n", name)
-		fmt.Fprintf(w, "> %s\n\n", des)
-		fmt.Fprintf(w, "%s\n\n", tool.Docs())
-	}
+		for _, tool := range tools {
+			name, des := tool.Details()
+			docs, err := tool.Docs()
+			if err != nil {
+				return fmt.Errorf("failed to get docs for tool %s: %w", name, err)
+			}
+			fmt.Fprintf(w, "### `%s`\n\n", name)
+			fmt.Fprintf(w, "> %s\n\n", des)
+			fmt.Fprintf(w, "%s\n\n", docs)
+		}
 
 	return nil
 }

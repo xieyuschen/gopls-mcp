@@ -22,11 +22,6 @@ type Watcher struct {
 	dir      string
 	stopCh   chan struct{}
 	stopOnce sync.Once
-
-	// Event processing
-	eventQueue []protocol.FileEvent
-	eventMu    sync.Mutex
-	eventReady chan struct{}
 }
 
 type ChangeWatchedFiles interface {
@@ -49,10 +44,8 @@ func New(server ChangeWatchedFiles, dir string, opts ...filewatcher.Option) (*Wa
 		server:     server,
 		dir:        dir,
 		stopCh:     make(chan struct{}),
-		eventReady: make(chan struct{}, 1),
 	}
 
-	// Create the file watcher
 	var (
 		queue    []protocol.FileEvent
 		queueMu  sync.Mutex
