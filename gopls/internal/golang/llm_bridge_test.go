@@ -1826,6 +1826,49 @@ func (c *Calculator) SetValue(x int) int {
 	}
 }
 
+// TestLLMImplementation_CrossPackageLineNumbers verifies that implementations
+// found in a package different from the one being analyzed carry a non-zero
+// StartLine. This is a regression test for the bug where buildSourceContext was
+// called with pkg.FileSet() (the analysed package's FileSet) instead of
+// implPkg.FileSet(), causing positions in other packages to resolve to line 0.
+func TestLLMImplementation_CrossPackageLineNumbers(t *testing.T) {
+	testenv.NeedsGoPackages(t)
+
+	// The multi_package testdata has:
+	//   interfaces/io.go  – defines Reader interface { Read() ([]byte, error) }
+	//   reader/file.go    – File struct implements Reader (different package)
+	//   reader/memory.go  – Memory struct implements Reader (different package)
+	files := loadTestDataFiles(t, "multi_package")
+
+	fix := setupLLMTest(t, files)
+	defer fix.cleanup()
+
+	// Locate the context file: the file that defines the Reader interface.
+	interfaceFile := fix.sandbox.Workdir.AbsPath("interfaces/io.go")
+
+	locator := api.SymbolLocator{
+		SymbolName:  "Read",
+		ContextFile: interfaceFile,
+		ParentScope: "Reader",
+		Kind:        "method",
+	}
+
+	impls, err := LLMImplementation(fix.ctx, fix.snapshot, locator)
+	if err != nil {
+		t.Fatalf("LLMImplementation failed: %v", err)
+	}
+	if len(impls) == 0 {
+		t.Fatal("expected at least one implementation, got none")
+	}
+
+	for _, impl := range impls {
+		if impl.StartLine == 0 {
+			t.Errorf("implementation %q in %q has StartLine=0; want >0 (cross-package FileSet bug)",
+				impl.Symbol, impl.File)
+		}
+	}
+}
+
 // Helper function to check if a string contains a substring
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
