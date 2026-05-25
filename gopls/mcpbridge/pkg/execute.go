@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -138,6 +139,20 @@ func Execute() {
 	} else {
 		// Use default configuration
 		config = core.DefaultConfig()
+	}
+
+	// Merge gopls settings from .vscode/settings.json (lower priority than config file).
+	// Only settings not already set by the config file are applied.
+	if vsGopls := loadVSCodeGoplsSettings(projectDir); len(vsGopls) > 0 {
+		log.Printf("[gopls-mcp] Merging gopls settings from .vscode/settings.json")
+		if config.Gopls == nil {
+			config.Gopls = make(map[string]any)
+		}
+		for k, v := range vsGopls {
+			if _, alreadySet := config.Gopls[k]; !alreadySet {
+				config.Gopls[k] = v
+			}
+		}
 	}
 
 	// Merge CLI directory filters into config (overrides config file value)
@@ -310,6 +325,31 @@ func helpAndUsage() {
 		flag.Usage()
 		os.Exit(0)
 	}
+}
+
+// loadVSCodeGoplsSettings reads the "gopls" section from .vscode/settings.json
+// in the given directory, if it exists. Returns nil when the file is absent or
+// contains no gopls settings.
+func loadVSCodeGoplsSettings(dir string) map[string]any {
+	settingsPath := filepath.Join(dir, ".vscode", "settings.json")
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return nil
+	}
+	var all map[string]any
+	if err := json.Unmarshal(data, &all); err != nil {
+		log.Printf("[gopls-mcp] Warning: failed to parse %s: %v", settingsPath, err)
+		return nil
+	}
+	gopls, ok := all["gopls"]
+	if !ok {
+		return nil
+	}
+	m, ok := gopls.(map[string]any)
+	if !ok {
+		return nil
+	}
+	return m
 }
 
 // checkGoEnv verifies that the Go toolchain is available and functional.
