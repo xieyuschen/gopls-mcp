@@ -1197,9 +1197,11 @@ func ResolveSymbol(ctx context.Context, snapshot *cache.Snapshot, locator api.Sy
 			// Find the AST node for this implementation (contains doc comment)
 			implNode := findNodeAtPos(implPgf, loc.Range.Start.Line, loc.Range.Start.Character)
 
-			// Build rich source context if we have both object and node
+			// Build rich source context if we have both object and node.
+			// Use implPkg.FileSet() (not pkg.FileSet()) so that positions for
+			// implementations in dependency packages resolve correctly.
 			if implObj != nil && implNode != nil {
-				srcCtx := buildSourceContext(pkg.FileSet(), implObj, implNode)
+				srcCtx := buildSourceContext(implPkg.FileSet(), implObj, implNode)
 				info.Implementations = append(info.Implementations, srcCtx)
 			} else {
 				// Fallback to minimal source context
