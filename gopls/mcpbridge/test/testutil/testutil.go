@@ -236,49 +236,6 @@ func StartMCPServerWithLogfile(t *testing.T, workdir string, logfile string) (*m
 	return mcpSession, ctx, cleanup
 }
 
-// StartMCPServerRaw builds and starts gopls-mcp for benchmarking.
-// Similar to StartMCPServer but doesn't require testing.T.
-func StartMCPServerRaw(workdir string) (*mcp.ClientSession, context.Context, func(), error) {
-	ctx := context.Background()
-
-	// Get project root directory (navigate from testutil to project root)
-	projectRoot, err := filepath.Abs("../../../..")
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get project root: %v", err)
-	}
-
-	// Build gopls-mcp to temp location
-	goplsMcpPath := filepath.Join(projectRoot, "goplsmcp.tmp")
-	buildCmd := exec.Command("go", "build", "-o", goplsMcpPath, ".")
-	buildCmd.Dir = projectRoot
-	if output, err := buildCmd.CombinedOutput(); err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to build gopls-mcp: %v\n%s", err, output)
-	}
-
-	// Ensure the binary has executable permissions
-	if err := os.Chmod(goplsMcpPath, 0755); err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to set executable permissions: %v", err)
-	}
-
-	// Start gopls-mcp
-	goplsMcpCmd := exec.Command(goplsMcpPath, "-workdir", workdir)
-	client := mcp.NewClient(&mcp.Implementation{Name: "benchmark-client", Version: "v0.0.1"}, nil)
-	mcpSession, err := client.Connect(ctx, &mcp.CommandTransport{Command: goplsMcpCmd}, nil)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to connect to gopls-mcp: %v", err)
-	}
-
-	cleanup := func() {
-		if err := mcpSession.Close(); err != nil {
-			// Log but don't fail in cleanup
-			fmt.Printf("Warning: Failed to close MCP connection: %v\n", err)
-		}
-		// Remove the built binary
-		os.Remove(goplsMcpPath)
-	}
-
-	return mcpSession, ctx, cleanup, nil
-}
 
 var updateGolden = os.Getenv("WRITE_GOLDEN") != ""
 
