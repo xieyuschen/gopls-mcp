@@ -61,10 +61,12 @@ func SearchWorkspaceSymbolsForLLM(ctx context.Context, snapshot *cache.Snapshot,
 	//   - WorkspacePackages filtering
 	symbolInfos, err := WorkspaceSymbols(
 		ctx,
-		settings.SymbolFuzzy,        // Use fuzzy matching
-		settings.DynamicSymbols,     // Smart symbol qualification
-		[]*cache.Snapshot{snapshot}, // Single snapshot
+		[]*cache.Snapshot{snapshot},
 		query,
+		WorkspaceSymbolsOptions{
+			Matcher: settings.SymbolFuzzy,
+			Style:   settings.DynamicSymbols,
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("workspace symbols failed: %v", err)

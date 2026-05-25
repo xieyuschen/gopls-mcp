@@ -693,7 +693,7 @@ func handleGoSymbolReferences(ctx context.Context, h *Handler, req *mcp.CallTool
 
 	// Call gopls's References function
 	// includeDeclaration=false to exclude the definition itself
-	locations, err := golang.References(ctx, snapshot, fh, position, false)
+	locations, err := golang.References(ctx, snapshot, fh, protocol.Range{Start: position, End: position}, false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find references: %w", err)
 	}
@@ -701,7 +701,7 @@ func handleGoSymbolReferences(ctx context.Context, h *Handler, req *mcp.CallTool
 	// Extract rich Symbol information for the referenced symbol
 	// Use the original symbol's definition to get signature, docs, etc.
 	var symbols []*api.Symbol
-	if defLocs, err := golang.Definition(ctx, snapshot, fh, position); err == nil && len(defLocs) > 0 {
+	if defLocs, err := golang.Definition(ctx, snapshot, fh, protocol.Range{Start: position, End: position}); err == nil && len(defLocs) > 0 {
 		// Extract symbol information at the definition location
 		if sym := golang.ExtractSymbolAtDefinition(ctx, snapshot, defLocs[0], true); sym != nil {
 			symbols = append(symbols, sym)
@@ -1197,7 +1197,7 @@ func handleGoCallHierarchy(ctx context.Context, h *Handler, req *mcp.CallToolReq
 	}
 
 	// Get the call hierarchy item for this position
-	items, err := golang.PrepareCallHierarchy(ctx, snapshot, fh, position)
+	items, err := golang.PrepareCallHierarchy(ctx, snapshot, fh, protocol.Range{Start: position, End: position})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to prepare call hierarchy: %w", err)
 	}
@@ -1255,7 +1255,7 @@ func handleGoCallHierarchy(ctx context.Context, h *Handler, req *mcp.CallToolReq
 
 	// Get incoming calls (what calls this function)
 	if direction == "incoming" || direction == "both" {
-		incoming, err := golang.IncomingCalls(ctx, snapshot, fh, position)
+		incoming, err := golang.IncomingCalls(ctx, snapshot, fh, protocol.Range{Start: position, End: position})
 		if err == nil && len(incoming) > 0 {
 			incomingCalls := make([]api.CallHierarchyCall, 0, len(incoming))
 			for _, call := range incoming {

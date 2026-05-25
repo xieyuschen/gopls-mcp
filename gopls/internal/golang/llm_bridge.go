@@ -984,7 +984,7 @@ func LLMRename(ctx context.Context, snapshot *cache.Snapshot, locator api.Symbol
 	}
 
 	// Call the internal Rename function
-	changes, err := Rename(ctx, snapshot, fh, position, newName)
+	changes, err := Rename(ctx, snapshot, fh, protocol.Range{Start: position, End: position}, newName)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to compute rename: %w", err)
 	}
@@ -1131,7 +1131,7 @@ func ResolveSymbol(ctx context.Context, snapshot *cache.Snapshot, locator api.Sy
 
 	// Step 3: Find definitions (if requested)
 	if options.FindDefinitions {
-		locations, err := Definition(ctx, snapshot, fh, position)
+		locations, err := Definition(ctx, snapshot, fh, protocol.Range{Start: position, End: position})
 		if err != nil {
 			return nil, fmt.Errorf("failed to find definitions: %w", err)
 		}

@@ -13,12 +13,13 @@ import (
 
 	"golang.org/x/tools/gopls/internal/filewatcher"
 	"golang.org/x/tools/gopls/internal/protocol"
+	"golang.org/x/tools/gopls/internal/settings"
 )
 
 // Watcher watches for file changes and notifies the gopls LSP server.
 type Watcher struct {
 	server   ChangeWatchedFiles // LSP server to notify of file changes
-	fw       *filewatcher.Watcher
+	fw       filewatcher.Watcher
 	dir      string
 	stopCh   chan struct{}
 	stopOnce sync.Once
@@ -90,7 +91,7 @@ func New(server ChangeWatchedFiles, dir string, opts ...filewatcher.Option) (*Wa
 		log.Printf("[gopls-mcp/watcher] Watch error: %v", err)
 	}
 
-	fw, err := filewatcher.New(500*time.Millisecond, nil, func(events []protocol.FileEvent) {
+	fw, err := filewatcher.New(settings.FileWatcherFSNotify, nil, func(events []protocol.FileEvent) {
 		if len(events) == 0 {
 			return
 		}

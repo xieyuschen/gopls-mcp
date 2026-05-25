@@ -54,10 +54,12 @@ func (s *minimalServer) Symbol(ctx context.Context, params *protocol.WorkspaceSy
 	// Based on: gopls/internal/golang/workspace_symbol.go WorkspaceSymbols()
 	symbols, err := golang.WorkspaceSymbols(
 		ctx,
-		settings.SymbolFuzzy,
-		settings.DynamicSymbols,
 		snapshots,
 		params.Query,
+		golang.WorkspaceSymbolsOptions{
+			Matcher: settings.SymbolFuzzy,
+			Style:   settings.DynamicSymbols,
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search symbols: %w", err)
