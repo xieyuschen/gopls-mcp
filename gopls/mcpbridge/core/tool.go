@@ -39,8 +39,14 @@ func (t GenericTool[In, Out]) Register(server *mcp.Server, handler *Handler) {
 		maxBytes = defaultMaxResponseBytes
 	}
 
-	// Create a wrapper function that applies response limits
+	// Create a wrapper function that applies lazy init and response limits
 	wrapped := func(ctx context.Context, req *mcp.CallToolRequest, input In) (*mcp.CallToolResult, Out, error) {
+		var zero Out
+		if err := handler.ensureSession(ctx); err != nil {
+			return nil, zero, err
+		}
+		defer handler.resetIdleTimer()
+
 		result, output, err := t.Handler(ctx, handler, req, input)
 		if err != nil {
 			return result, output, err

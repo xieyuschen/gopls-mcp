@@ -34,6 +34,12 @@ type MCPConfig struct {
 	// Default: 32000 (32KB)
 	// JSON field name: max_response_bytes
 	MaxResponseBytes int `json:"max_response_bytes,omitempty"`
+
+	// IdleTimeout is the duration of inactivity before gopls session resources
+	// are released. Accepts Go duration strings: "5m", "30s", "500ms".
+	// On next tool call the session is re-initialized automatically.
+	// Default: "5m".
+	IdleTimeout string `json:"idle_timeout,omitempty"`
 }
 
 // DefaultConfig returns a default configuration.
@@ -41,6 +47,7 @@ func DefaultConfig() *MCPConfig {
 	return &MCPConfig{
 		Gopls:            make(map[string]any),
 		MaxResponseBytes: 32000, // 32KB
+		IdleTimeout:      "5m",
 	}
 }
 
@@ -62,6 +69,9 @@ func LoadConfig(data []byte) (*MCPConfig, error) {
 	}
 	if config.MaxResponseBytes == 0 {
 		config.MaxResponseBytes = 32000 // 32KB
+	}
+	if config.IdleTimeout == "" {
+		config.IdleTimeout = "5m"
 	}
 
 	return &config, nil

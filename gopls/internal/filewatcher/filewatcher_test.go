@@ -510,7 +510,7 @@ func TestSkipDirFunc(t *testing.T) {
 		return filepath.Base(dirPath) == "ignored"
 	}
 
-	w, err := filewatcher.New(50*time.Millisecond, nil, eventsHandler, errHandler, filewatcher.WithSkipDir(skipDirFunc))
+	w, err := filewatcher.New(settings.FileWatcherFSNotify, nil, eventsHandler, errHandler, filewatcher.WithSkipDir(skipDirFunc))
 	if err != nil {
 		t.Fatal(err)
 	}
