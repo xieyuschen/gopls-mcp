@@ -68,10 +68,6 @@ export default defineConfig({
 					label: 'Reference',
 					autogenerate: { directory: 'reference' },
 				},
-				{
-					label: 'Benchmarks',
-					autogenerate: { directory: 'benchmarks' },
-				},
 			],
 		}),
 	],
