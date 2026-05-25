@@ -62,6 +62,9 @@ var (
 	// directoryFiltersFlag allows setting gopls directoryFilters via CLI flag.
 	// Filters use the same syntax as gopls directoryFilters (e.g. "-**/node_modules,-vendor").
 	directoryFiltersFlag = flag.String("directory-filters", "", "Comma-separated directory filters (e.g. \"-**/node_modules,-vendor\")")
+	// idleTimeoutFlag sets the duration of inactivity before gopls resources are released.
+	// Accepts Go duration strings: "5m", "30s", "500ms". Overrides the config file value.
+	idleTimeoutFlag = flag.String("idle-timeout", "", "Inactivity duration before releasing gopls resources (e.g. \"5m\", \"30s\", default: 5m)")
 )
 
 const (
@@ -156,58 +159,22 @@ func Execute() {
 		log.Printf("[gopls-mcp] Directory filters from CLI: %v", filters)
 	}
 
+	// Merge CLI idle-timeout into config (overrides config file value)
+	if *idleTimeoutFlag != "" {
+		config.IdleTimeout = *idleTimeoutFlag
+	}
+
 	// Override workdir from config if set
 	if config.Workdir != "" {
 		projectDir = config.Workdir
 		log.Printf("[gopls-mcp] Using workdir from config: %s", projectDir)
 	}
 
-	// Create gopls cache
-	ctx := context.Background()
-	goplsCache := cache.New(nil)
-	session := cache.NewSession(ctx, goplsCache)
-
-	// Initialize gopls options (REQUIRED for view creation)
-	// Start with defaults and apply user configuration
+	// Build gopls options from config (needed for watcher filters and view creation).
 	options := settings.DefaultOptions()
-
-	// Apply gopls configuration from MCP config
-	// This allows users to set native gopls options like analyses, buildFlags, etc.
 	if err := config.ApplyGoplsOptions(options); err != nil {
 		log.Printf("[gopls-mcp] Warning: Failed to apply some gopls options: %v", err)
-		// Continue anyway - partial configuration is better than failure
-	} else {
-		log.Printf("[gopls-mcp] Gopls options applied successfully")
 	}
-
-	// Fetch Go environment for the working directory (REQUIRED for view creation)
-	// This loads GOROOT, GOPATH, GOVERSION, and other critical environment info
-	dirURI := protocol.URIFromPath(projectDir)
-	goEnv, err := cache.FetchGoEnv(ctx, dirURI, options)
-	if err != nil {
-		log.Fatalf("[gopls-mcp] Failed to load Go env: %v", err)
-	}
-
-	// Create a view for the working directory with proper initialization
-	// This enables gopls to analyze the Go project
-	folder := &cache.Folder{
-		Dir:     dirURI,
-		Options: options,
-		Env:     *goEnv,
-	}
-	view, _, releaseView, err := session.NewView(ctx, folder)
-	if err != nil {
-		log.Fatalf("[gopls-mcp] Failed to create view for %s: %v", projectDir, err)
-	}
-	defer releaseView()
-
-	log.Printf("[gopls-mcp] Created view for %s (type: %v)", projectDir, view.Type())
-	releaseView() // Release the initial snapshot since we won't use it
-
-	// Create a minimal LSP server stub that implements the methods we need
-	// The gopls-mcp handlers use the Symbol method for search
-	// The watcher uses DidChangeWatchedFiles to notify gopls of file changes
-	lspServer := &minimalServer{session: session}
 
 	// Build directory skip function from directoryFilters so the file
 	// watcher excludes the same directories that gopls analysis ignores
@@ -217,28 +184,50 @@ func Execute() {
 		watcherOpts = append(watcherOpts, makeDirectoryFilterSkipFunc(filters, projectDir))
 	}
 
-	// Start file change watcher
-	// This keeps the gopls cache up-to-date when files are edited
-	var fileWatcher *watcher.Watcher
-	fileWatcher, err = watcher.New(lspServer, projectDir, watcherOpts...)
-	if err != nil {
-		log.Printf("[gopls-mcp] Failed to start file watcher: %v", err)
-		// Continue anyway - tools will work but file changes won't be detected
-	} else {
-		defer fileWatcher.Close()
-		log.Printf("[gopls-mcp] File watcher started for %s", projectDir)
+	// initFn creates the gopls session, file watcher, and LSP server on first
+	// tool call (lazy init). Resources are released by shutdownResources after
+	// the idle timeout and recreated here on the next call.
+	initFn := func(ctx context.Context) (*cache.Session, core.Symbler, io.Closer, error) {
+		goplsCache := cache.New(nil)
+		session := cache.NewSession(ctx, goplsCache)
+
+		dirURI := protocol.URIFromPath(projectDir)
+		goEnv, err := cache.FetchGoEnv(ctx, dirURI, options)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to load Go env: %w", err)
+		}
+
+		folder := &cache.Folder{
+			Dir:     dirURI,
+			Options: options,
+			Env:     *goEnv,
+		}
+		_, _, releaseView, err := session.NewView(ctx, folder)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to create view for %s: %w", projectDir, err)
+		}
+		releaseView()
+
+		lspServer := &minimalServer{session: session}
+
+		fw, err := watcher.New(lspServer, projectDir, watcherOpts...)
+		if err != nil {
+			log.Printf("[gopls-mcp] Failed to start file watcher: %v (file changes won't be detected)", err)
+			return session, lspServer, nil, nil
+		}
+		log.Printf("[gopls-mcp] Initialized gopls for %s", projectDir)
+		return session, lspServer, fw, nil
 	}
 
-	// Create gopls-mcp handler backed by gopls session
-	// Pass the config to enable response limits
+	// Create gopls-mcp handler with lazy init and idle timeout.
 	var handlerOpts []core.HandlerOption
 	handlerOpts = append(handlerOpts, core.WithConfig(config))
-	// Check environment variable for dynamic view creation (test-only)
+	handlerOpts = append(handlerOpts, core.WithOptions(options))
 	if os.Getenv(allowDynamicViewsEnv) == "true" || os.Getenv(allowDynamicViewsEnv) == "1" {
 		log.Printf("[gopls-mcp] Dynamic views enabled via %s (TEST-ONLY)", allowDynamicViewsEnv)
 		handlerOpts = append(handlerOpts, core.WithDynamicViews(true))
 	}
-	coreHandler := core.NewHandler(session, lspServer, handlerOpts...)
+	coreHandler := core.NewHandler(initFn, handlerOpts...)
 
 	// Create MCP server and register all gopls-mcp tools
 	server := mcp.NewServer(&mcp.Implementation{Name: mcpName, Version: version}, nil)
@@ -267,6 +256,7 @@ func Execute() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 	// Run server in a goroutine so we can handle signals
+	ctx := context.Background()
 	serverErrCh := make(chan error, 1)
 	go func() {
 		serverErrCh <- server.Run(ctx, &mcp.StdioTransport{})

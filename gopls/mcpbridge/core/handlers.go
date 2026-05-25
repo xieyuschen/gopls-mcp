@@ -3,11 +3,14 @@ package core
 import (
 	"context"
 	"fmt"
+	"io"
+	"log"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/tools/gopls/internal/cache"
@@ -20,15 +23,29 @@ import (
 	"golang.org/x/tools/gopls/mcpbridge/api"
 )
 
+// InitFunc creates the gopls session, symbler, and file watcher on first use.
+// The returned io.Closer is the file watcher; may be nil if watching failed.
+type InitFunc func(ctx context.Context) (*cache.Session, Symbler, io.Closer, error)
+
 // Handler implements gopls-mcp MCP tools using gopls's existing APIs.
-// This bridges the MCP tool requests to gopls's session, snapshot, and analysis capabilities.
+// Resources are initialized lazily on first tool call and released after
+// idleTimeout of inactivity.
 type Handler struct {
+	// initFn creates gopls session + watcher on first tool call.
+	initFn      InitFunc
+	// config holds the gopls-mcp configuration (response limits, etc.)
+	config      *MCPConfig
+	idleTimeout time.Duration
+	// options holds gopls configuration for dynamic view creation (test mode).
+	options *settings.Options
+
+	// lazy-initialized resources, protected by initMu.
+	initMu  sync.Mutex
 	session *cache.Session
 	symbler Symbler
-	// options holds the gopls configuration options used for creating views.
-	options *settings.Options
-	// config holds the gopls-mcp configuration (response limits, etc.)
-	config *MCPConfig
+	watcher io.Closer
+	timer   *time.Timer
+
 	// allowDynamicViews enables creating new gopls views on-demand for e2e testing.
 	// When false (default), viewForDir returns an error if no existing view matches.
 	// When true (test mode), viewForDir creates a new view for the directory.
@@ -48,6 +65,13 @@ type HandlerOption func(*Handler)
 func WithConfig(config *MCPConfig) HandlerOption {
 	return func(h *Handler) {
 		h.config = config
+	}
+}
+
+// WithOptions sets gopls options used for dynamic view creation (test mode).
+func WithOptions(opts *settings.Options) HandlerOption {
+	return func(h *Handler) {
+		h.options = opts
 	}
 }
 
@@ -74,31 +98,85 @@ type Symbler interface {
 	Symbol(ctx context.Context, params *protocol.WorkspaceSymbolParams) ([]protocol.SymbolInformation, error)
 }
 
-// NewHandler creates a new Handler backed by gopls's session and LSP server.
-// Based on: gopls/internal/mcp/mcp.go handler struct (line 31-34)
-//
-// Note: This does NOT eagerly populate the cache. The gopls snapshot uses
-// lazy loading, where packages are loaded on-demand when tool handlers
-// call methods like WorkspaceMetadata(), LoadMetadataGraph(), etc.
-// These methods internally call awaitLoaded() which triggers reloadWorkspace().
-func NewHandler(session *cache.Session, symbler Symbler, opts ...HandlerOption) *Handler {
+// NewHandler creates a new Handler that initializes gopls lazily on first tool call.
+// Resources are released after idleTimeout (configured via MCPConfig.IdleTimeoutMinutes)
+// of inactivity, and re-initialized on the next call.
+func NewHandler(initFn InitFunc, opts ...HandlerOption) *Handler {
 	h := &Handler{
-		session:           session,
-		symbler:           symbler,
-		options:           settings.DefaultOptions(), // Default gopls options
-		config:            DefaultConfig(),           // Default gopls-mcp config
-		allowDynamicViews: false,                     // Production mode: no dynamic views
-		dynamicViews:      make(map[string]func()),
+		initFn:       initFn,
+		options:      settings.DefaultOptions(),
+		config:       DefaultConfig(),
+		dynamicViews: make(map[string]func()),
 	}
 	for _, opt := range opts {
 		opt(h)
 	}
+	if d, err := time.ParseDuration(h.config.IdleTimeout); err == nil && d > 0 {
+		h.idleTimeout = d
+	} else {
+		h.idleTimeout = 5 * time.Minute
+	}
 	return h
+}
+
+// ensureSession initializes the gopls session if not already done.
+// Safe to call concurrently; only one goroutine performs initialization.
+func (h *Handler) ensureSession(ctx context.Context) error {
+	h.initMu.Lock()
+	defer h.initMu.Unlock()
+	if h.session != nil {
+		return nil
+	}
+	// Use background context: initialization must not be cancelled by the
+	// request context, as it is shared across all subsequent requests.
+	session, symbler, watcher, err := h.initFn(context.Background())
+	if err != nil {
+		return fmt.Errorf("gopls initialization failed: %w", err)
+	}
+	h.session = session
+	h.symbler = symbler
+	h.watcher = watcher
+	h.timer = time.AfterFunc(h.idleTimeout, h.shutdownResources)
+	log.Printf("[gopls-mcp] Session initialized (idle timeout: %v)", h.idleTimeout)
+	return nil
+}
+
+// resetIdleTimer postpones the idle shutdown by another idleTimeout duration.
+// Called after each successful tool invocation.
+func (h *Handler) resetIdleTimer() {
+	h.initMu.Lock()
+	defer h.initMu.Unlock()
+	if h.timer != nil {
+		h.timer.Reset(h.idleTimeout)
+	}
+}
+
+// shutdownResources releases all gopls resources: file watcher inotify FDs,
+// gopls goroutines (parse cache, import timers), and snapshot memory.
+// Called by the idle timer; safe to call multiple times.
+func (h *Handler) shutdownResources() {
+	h.initMu.Lock()
+	defer h.initMu.Unlock()
+	if h.watcher != nil {
+		h.watcher.Close()
+		h.watcher = nil
+	}
+	if h.session != nil {
+		// Shutdown blocks until all outstanding snapshots are released.
+		h.session.Shutdown(context.Background())
+		h.session = nil
+		h.symbler = nil
+	}
+	h.timer = nil
+	log.Printf("[gopls-mcp] All resources released (idle timeout reached)")
 }
 
 // snapshot returns the best default snapshot for workspace queries.
 // Based on: gopls/internal/mcp/mcp.go snapshot() method (line 316-322)
 func (h *Handler) snapshot() (*cache.Snapshot, func(), error) {
+	if h.session == nil {
+		return nil, nil, fmt.Errorf("no active session")
+	}
 	views := h.session.Views()
 	if len(views) == 0 {
 		return nil, nil, fmt.Errorf("no active views")
@@ -183,6 +261,9 @@ func (h *Handler) viewForDir(dir string) (*cache.View, error) {
 func (h *Handler) getView(dir string) (*cache.View, error) {
 	if dir != "" {
 		return h.viewForDir(dir)
+	}
+	if h.session == nil {
+		return nil, fmt.Errorf("no active session")
 	}
 	views := h.session.Views()
 	if len(views) == 0 {
