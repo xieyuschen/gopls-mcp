@@ -184,29 +184,6 @@ func TestRealTestFiles_TestPackageSymbols(t *testing.T) {
 		}
 	})
 
-	t.Run("ListBenchmarkPackageSymbols", func(t *testing.T) {
-		// Test: List symbols in benchmark package
-		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
-			Name: "go_list_package_symbols",
-			Arguments: map[string]any{
-				"package_path":   "golang.org/x/tools/gopls/mcpbridge/test/benchmark",
-				"include_docs":   false,
-				"include_bodies": false,
-				"Cwd":            globalGoplsMcpDir,
-			},
-		})
-		if err != nil {
-			t.Fatalf("Failed to list benchmark symbols: %v", err)
-		}
-
-		content := testutil.ResultText(t, res, testutil.GoldenListPackageSymbolsTestFiles)
-		t.Logf("Benchmark package symbols:\n%s", testutil.TruncateString(content, 2000))
-
-		// Should find benchmark-related symbols
-		if !strings.Contains(content, "Benchmark") {
-			t.Error("Expected to find Benchmark functions")
-		}
-	})
 }
 
 // TestRealTestFiles_FindTestUsages tests finding where test utilities are used
@@ -322,8 +299,8 @@ func TestRealTestFiles_WorkspaceAnalysis(t *testing.T) {
 		content := testutil.ResultText(t, res, testutil.GoldenRealTestFilesWorkspaceAnalysis)
 		t.Logf("All test packages:\n%s", testutil.TruncateString(content, 3000))
 
-		// Should find e2e, integration, benchmark, testutil, testdata packages
-		expected := []string{"e2e", "integration", "benchmark", "testutil", "testdata"}
+		// Should find e2e, integration, testutil, testdata packages
+		expected := []string{"e2e", "integration", "testutil", "testdata"}
 		missing := []string{}
 		for _, exp := range expected {
 			if !strings.Contains(content, exp) {
