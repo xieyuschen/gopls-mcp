@@ -8,6 +8,4 @@ Real-world examples of using gopls-mcp to improve AI-assisted Go development.
 
 ---
 
-- [Semantic pattern adoption](./semantic-pattern-adoption)
-
-More case studies coming soon.
+Case studies coming soon.
