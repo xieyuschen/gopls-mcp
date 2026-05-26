@@ -6,16 +6,15 @@ sidebar:
 
 ## About These Tools
 
-The gopls-mcp server provides **semantic analysis tools** powered by gopls (the Go language server).
-These tools are type-aware, fast, and token-efficient compared to text-based alternatives like grep.
+gopls-mcp provides **semantic analysis tools** powered by gopls (the Go language server).
+These tools are type-aware: they understand interfaces, scopes, and type identity in ways
+that grep and file reads cannot.
 
-### Why Use Semantic Tools?
+### Scope
 
-| Approach | Problem | Solution |
-|----------|---------|----------|
-| grep/ripgrep | Text matching, no semantic understanding | Semantic tools understand types, scopes, and interfaces |
-| Manual file reading | High token cost, attention dilution | Targeted queries return only what you need |
-| go build | Slow code generation | Incremental type checking (~500x faster) |
+gopls-mcp deliberately ships only what grep + Read cannot do well. Listing packages, reading
+go.mod, running `go build`, fuzzy symbol search — your assistant can already do those
+with its native tools. What it *cannot* do is resolve Go's type system, and that's what's here.
 
 ### Key Concepts
 
@@ -24,102 +23,6 @@ These tools are type-aware, fast, and token-efficient compared to text-based alt
 - **Tool Relationships**: Tools cross-reference each other - see "See also" sections
 
 ---
-
-### `go_list_modules`
-
-> List current module and direct dependencies only. Returns module paths only (no packages). By default, transitive dependencies are excluded. Set direct_only=false to show all dependencies including transitive ones. Use this to understand the module structure before exploring packages.
-
-List current module and direct dependencies only.
-
-**When to use**: Understanding module structure before exploring packages.
-
-**Use this instead of**: Reading go.mod manually.
-
-**Note**: By default excludes transitive dependencies. Set direct_only=false to include all.
-
-**See also**: go_list_module_packages for discovering packages within a module.
-
-
-### `go_list_module_packages`
-
-> List all packages in a given module. Returns package names and optionally documentation. Use this to discover packages within a module before exploring symbols.
-
-List all packages in a given module.
-
-**When to use**: Discovering packages within a module before exploring symbols.
-
-**Use this instead of**: Running find/ls and reading files manually.
-
-**See also**: go_list_package_symbols for exploring symbols within a package.
-
-
-### `go_list_package_symbols`
-
-> List all exported symbols (types, functions, constants, variables) in a package. Returns Symbol objects with name, kind, signature, receiver, documentation, and optional bodies. Use include_docs=true for documentation and include_bodies=true for function implementations. Use this to explore a package's API surface before diving into specific symbols with get_package_symbol_detail.
-
-List all exported symbols (types, functions, constants, variables) in a package.
-
-**When to use**: Exploring a package's API surface before diving into specific symbols.
-
-**Use this instead of**: Reading entire package files to find what's exported.
-
-**Output**: Returns Symbol objects with name, kind, signature, receiver, documentation. Use include_bodies=true for implementations.
-
-**See also**: go_get_package_symbol_detail for specific symbols, go_search for finding symbols by name.
-
-
-### `go_get_package_symbol_detail`
-
-> Get detailed symbol information from a package. Returns Symbol objects with name, kind, signature, receiver (for methods), parent (for fields), documentation, and optional bodies. Symbol filters are REQUIRED - provide symbol_filters to retrieve specific symbols by name and receiver (e.g., [{name: "Start", receiver: "*Server"}]). For methods, receiver matching uses exact string match (e.g., "*Server" != "Server"). Use include_docs=true for documentation and include_bodies=true for function implementations. Use list_package_symbols to get all symbols in a package.
-
-Get detailed symbol information from a package.
-
-**When to use**: Retrieving specific symbol details (signatures, docs, bodies) after discovering them with go_list_package_symbols.
-
-**Required**: symbol_filters parameter to specify which symbols to retrieve (e.g., [{name: "Start", receiver: "*Server"}]).
-
-**Note**: For methods, receiver matching is exact (e.g., "*Server" != "Server").
-
-**See also**: go_definition for jumping to definitions while reading code.
-
-
-### `go_build_check`
-
-> Check for compilation and type errors. FAST: uses incremental type checking (faster than 'go build'). Use this to verify code correctness and populate the workspace cache for other tools. Returns detailed error information with file/line/column.
-
-Check for compilation and type errors using incremental type checking.
-
-**When to use**: Verifying code correctness after making changes.
-
-**Use this instead of**: Running "go build" (this is ~500x faster by skipping code generation).
-
-**Output**: Detailed error information with file/line/column.
-
-**Note**: This also populates the workspace cache for faster subsequent tool calls.
-
-
-### `go_search`
-
-> Find symbols (functions, types, constants) by name with fuzzy matching. Use this when user knows part of a symbol name but not the full name or location. Returns rich symbol information (name, kind, file, line) for fast exploration.
-
-Find symbols (functions, types, constants) by name with fuzzy matching.
-
-**When to use**: You know part of a symbol's NAME (identifier) but not the full name or location.
-
-**Critical - This ONLY searches symbol names**:
-- ✅ Searches for identifier names: "formatSymbol", "Diag", "Server"
-- ❌ NOT for code patterns, phrases, or concepts
-- ❌ NOT for signatures like "func PackageDiagnostics"
-- ❌ NOT for descriptions like "diagnostic deduplicate logic"
-
-**Use this instead of**: Grep/ripgrep when searching for symbol identifiers by name.
-
-**Output**: Symbol name, kind, file, line. Does NOT include signature/docs/body (use go_definition for those).
-
-**Example**: Searching "formatSymbol" matches formatPackageSymbols, formatPackageSymbolDetail, FormatSymbolSummary.
-
-**See also**: go_definition for full details, go_list_package_symbols for exploring all symbols in a package.
-
 
 ### `go_symbol_references`
 
@@ -184,7 +87,7 @@ Jump to the definition of a symbol.
 
 **Input**: Use semantic locator (symbol_name + context_file where you see the symbol).
 
-**See also**: go_get_package_symbol_detail for exploring package APIs.
+**See also**: go_symbol_references for finding usages of the same symbol.
 
 
 ### `go_get_call_hierarchy`
@@ -202,30 +105,6 @@ Get the call hierarchy for a function.
 **See also**: go_symbol_references for finding usages.
 
 
-### `go_analyze_workspace`
-
-> Analyze the entire workspace to discover packages, entry points, and dependencies. Use this when exploring a new codebase to understand the project structure, find main packages, API endpoints, and get a comprehensive overview of the codebase.
-
-Analyze the entire workspace to discover packages, entry points, and dependencies.
-
-**When to use**: First encountering a new codebase and want a comprehensive overview.
-
-**Output**: High-level map of packages, entry points, and dependencies.
-
-**See also**: go_get_started for a beginner-friendly guide.
-
-
-### `go_get_started`
-
-> Get a beginner-friendly guide to start exploring the Go project. Returns project identity, quick stats, entry points, package categories, and recommended next steps. Use this when you're new to a codebase and want to understand where to start.
-
-Get a beginner-friendly guide to start exploring the Go project.
-
-**When to use**: New to a codebase and want to understand where to start.
-
-**Output**: Project identity, quick stats, entry points, package categories, recommended next steps.
-
-
 ### `go_get_dependency_graph`
 
 > Get the dependency graph for a package. Returns both dependencies (packages it imports) and dependents (packages that import it). Use this to understand architectural relationships, analyze coupling, and visualize the package's place in the codebase.
@@ -235,7 +114,5 @@ Get the dependency graph for a package.
 **When to use**: Understanding architectural relationships, analyzing coupling, visualizing the package's place in the codebase.
 
 **Output**: Both dependencies (what it imports) and dependents (what imports it).
-
-**See also**: go_list_modules for understanding module structure.
 
 

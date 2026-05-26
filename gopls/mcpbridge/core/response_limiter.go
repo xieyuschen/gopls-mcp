@@ -207,7 +207,7 @@ func addTruncationMetadata(data map[string]any, originalSize, truncatedSize int,
 // WrapWithResponseLimits is a decorator that wraps tool handlers with automatic response limiting.
 // Usage:
 //
-//	handler := WrapWithResponseLimits(handleAnalyzeWorkspace, h.config.MaxResponseBytes, "go_analyze_workspace")
+//	handler := WrapWithResponseLimits(handleGetDependencyGraph, h.config.MaxResponseBytes, "go_get_dependency_graph")
 func WrapWithResponseLimits[In, Out any](
 	handler func(context.Context, *Handler, *mcp.CallToolRequest, In) (*mcp.CallToolResult, *Out, error),
 	maxBytes int,
