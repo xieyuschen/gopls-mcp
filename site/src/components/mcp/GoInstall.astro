@@ -1,0 +1,59 @@
+---
+// src/components/mcp/GoInstall.astro
+import McpStyles from './McpStyles.astro';
+---
+
+<McpStyles />
+
+<div class="mcp-terminal-container">
+  <div class="mcp-title-bar">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="4 17 10 11 4 5"></polyline>
+      <line x1="12" y1="19" x2="20" y2="19"></line>
+    </svg>
+    <span>Quick Install</span>
+  </div>
+
+  <div class="editor-window">
+    <div class="editor-header">
+      <div class="file-info">
+        <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+        <span class="file-name">terminal</span>
+      </div>
+      <span class="editor-pos">Linux / macOS</span>
+    </div>
+    <div class="editor-body">
+      <div class="line">
+        <span class="line-num">$</span>
+        <span class="val-str"> curl -sSL https://gopls-mcp.org/install.sh | bash</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="protocol-trace">
+    <div class="trace-header">
+      <svg class="trace-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+      <span class="trace-label">ADD TO CLAUDE CODE</span>
+    </div>
+
+    <div class="trace-item request">
+      <div class="trace-direction">>> Add MCP server</div>
+      <div class="trace-content">
+        <span class="key">claude mcp add</span> <span class="val-str">gopls-mcp</span> <span class="key">--</span> <span class="val-str">gopls-mcp -workdir .</span>
+      </div>
+    </div>
+
+    <div class="trace-item response">
+      <div class="trace-direction"><< Ready</div>
+      <div class="trace-content">
+        <span class="key">tools:</span> go_definition, go_implementation,<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;go_symbol_references, go_get_call_hierarchy,<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;go_get_dependency_graph, go_dryrun_rename_symbol
+      </div>
+    </div>
+  </div>
+</div>

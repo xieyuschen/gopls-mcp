@@ -71,10 +71,8 @@ hero:
       variant: secondary
 ---
 
-import GoDiagnostics from '../../components/mcp/GoDiagnostics.astro';
 import GoDefinition from '../../components/mcp/GoDefinition.astro';
 import GoReferences from '../../components/mcp/GoReferences.astro';
-import GoCallHierarchy from '../../components/mcp/GoCallHierarchy.astro';
 
 <style>{`
   /* CSS for fine-tuning Hero area */
@@ -94,6 +92,19 @@ import GoCallHierarchy from '../../components/mcp/GoCallHierarchy.astro';
   :global([data-theme='light']) .hero html { color: #24292e; }
 `}</style>
 
+<div style="margin-top: -3rem">
+
+### Quick Install
+
+```bash
+curl -sSL https://gopls-mcp.org/install.sh | bash
+```
+
+```bash
+claude mcp add gopls-mcp -- gopls-mcp -workdir .
+```
+
+</div>
 
 ### MCP Provides Accurate Context to LLM
 
@@ -117,12 +128,6 @@ perserves LLM attention and save your tokens.
 `}</style>
 
 <div class="mcp-grid">
-  <GoDiagnostics />
   <GoReferences />
-</div>
-
-
-<div class="mcp-grid">
   <GoDefinition />
-  <GoCallHierarchy />
 </div>
