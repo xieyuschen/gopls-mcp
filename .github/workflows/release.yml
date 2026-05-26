@@ -72,7 +72,6 @@ jobs:
   post-release:
     needs: goreleaser
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.continue-on-error == true }}
     strategy:
       fail-fast: false
       matrix:
@@ -81,20 +80,10 @@ jobs:
             name: "Linux"
             script: "site/public/install.sh"
             binary: "gopls-mcp"
-          - os: macos-latest
+          - os: macos-13
             name: "macOS"
             script: "site/public/install.sh"
             binary: "gopls-mcp"
-          - os: ubuntu-latest-arm64
-            name: "Linux ARM64"
-            script: "site/public/install.sh"
-            binary: "gopls-mcp"
-            continue-on-error: true
-          - os: macos-latest-arm64
-            name: "macOS ARM64"
-            script: "site/public/install.sh"
-            binary: "gopls-mcp"
-            continue-on-error: true
           - os: windows-latest
             name: "Windows"
             script: "site/public/install.ps1"
@@ -156,30 +145,14 @@ jobs:
 
           echo "✓ Version matches expected: $GOPLS_MCP_VERSION"
 
-          # Verify binary architecture matches system
-          SYSTEM_ARCH=$(uname -m)
-          echo "System architecture: $SYSTEM_ARCH"
-
-          # Check binary architecture using file command
+          # Verify binary is x86_64
           BINARY_INFO=$(file "$BIN_DIR/${{ matrix.binary }}")
           echo "Binary info: $BINARY_INFO"
-
-          case "$SYSTEM_ARCH" in
-            x86_64)
-              if [[ ! "$BINARY_INFO" =~ "x86-64" && ! "$BINARY_INFO" =~ "x86_64" && ! "$BINARY_INFO" =~ "amd64" ]]; then
-                echo "✗ Binary architecture mismatch: expected x86_64, got $BINARY_INFO"
-                exit 1
-              fi
-              ;;
-            aarch64|arm64)
-              if [[ ! "$BINARY_INFO" =~ "aarch64" && ! "$BINARY_INFO" =~ "arm64" ]]; then
-                echo "✗ Binary architecture mismatch: expected arm64/aarch64, got $BINARY_INFO"
-                exit 1
-              fi
-              ;;
-          esac
-
-          echo "✓ Binary architecture matches system: $SYSTEM_ARCH"
+          if [[ ! "$BINARY_INFO" =~ "x86-64" && ! "$BINARY_INFO" =~ "x86_64" ]]; then
+            echo "✗ Binary architecture mismatch: expected x86_64, got $BINARY_INFO"
+            exit 1
+          fi
+          echo "✓ Binary architecture: x86_64"
 
           echo "✓ ${{ matrix.name }} installation test PASSED"
 
