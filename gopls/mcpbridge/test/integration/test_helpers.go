@@ -6,6 +6,7 @@ package integration
 import (
 	"fmt"
 	"strings"
+	"testing"
 )
 
 // testCase defines a single tool test case
@@ -16,8 +17,11 @@ type testCase struct {
 	// Tool name to call
 	tool string
 
-	// Arguments to pass to the tool
+	// Arguments to pass to the tool. Mutually exclusive with setup.
 	args map[string]any
+
+	// Optional: setup creates temp files and returns args. Takes priority over args.
+	setup func(t *testing.T) map[string]any
 
 	// Optional: project to copy from testdata (e.g., "simple", "generics")
 	// If empty, uses the default shared workdir
@@ -25,6 +29,10 @@ type testCase struct {
 
 	// Assertions to run on the tool output
 	assertions []assertion
+
+	// skip marks this test case for skipping
+	skip       bool
+	skipReason string
 }
 
 // assertion defines a check to run on tool output

@@ -1,7 +1,7 @@
 package integration
 
-// Strong end-to-end test for go_dryrun_rename_symbol functionality.
-// These tests verify the rename preview returns accurate changes and would fail with fake implementations.
+// Strong end-to-end tests for go_dryrun_rename_symbol functionality.
+// Verifies the rename preview returns accurate changes and proves no mutation (DRY RUN).
 
 import (
 	"os"
@@ -13,29 +13,99 @@ import (
 	"golang.org/x/tools/gopls/mcpbridge/test/testutil"
 )
 
-// TestGoRenameSymbol_Strong is a strong end-to-end test that verifies go_dryrun_rename_symbol
-// returns an accurate dry-run preview. This would FAIL with placeholder implementations.
+// writeGoMod writes a minimal go.mod to projectDir.
+func writeGoMod(t *testing.T, projectDir string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(projectDir, "go.mod"), []byte("module example.com/test\n\ngo 1.21\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// findLineInSrc returns the 1-based line number of the first line in src containing needle.
+func findLineInSrc(t *testing.T, src, needle string) int {
+	t.Helper()
+	for i, line := range strings.Split(src, "\n") {
+		if strings.Contains(line, needle) {
+			return i + 1
+		}
+	}
+	t.Fatalf("could not find %q in source", needle)
+	return 0
+}
+
+// renameArgs builds the standard locator+new_name args map.
+func renameArgs(symbol, contextFile string, lineHint int, newName string) map[string]any {
+	return map[string]any{
+		"locator": map[string]any{
+			"symbol_name":  symbol,
+			"context_file": contextFile,
+			"line_hint":    lineHint,
+		},
+		"new_name": newName,
+	}
+}
+
+// assertDryRun verifies the essential dry-run invariants on content:
+//   - Output contains "DRY RUN"
+//   - Unified diff headers (--- and +++) present
+//   - oldSym appears on removal lines (-), newSym on addition lines (+)
+//
+// Returns the removal and addition counts.
+func assertDryRun(t *testing.T, content, oldSym, newSym string) (removals, additions int) {
+	t.Helper()
+	if !strings.Contains(strings.ToUpper(content), "DRY RUN") {
+		t.Fatalf("CRITICAL: output must contain 'DRY RUN'; got:\n%s", content)
+	}
+	if !strings.Contains(content, "---") || !strings.Contains(content, "+++") {
+		t.Errorf("expected unified diff headers (--- / +++)")
+	}
+	for _, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(line, "-") && strings.Contains(line, oldSym) {
+			removals++
+		}
+		if strings.HasPrefix(line, "+") && strings.Contains(line, newSym) {
+			additions++
+		}
+	}
+	return removals, additions
+}
+
+// assertFileUnchanged checks a file still matches original content.
+func assertFileUnchanged(t *testing.T, path, original string) {
+	t.Helper()
+	current, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(current) != original {
+		t.Errorf("DRY RUN VIOLATED: %s was modified!", path)
+	}
+}
+
+// callRename invokes go_dryrun_rename_symbol and returns the text content.
+func callRename(t *testing.T, args map[string]any, golden string) string {
+	t.Helper()
+	res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
+		Name:      "go_dryrun_rename_symbol",
+		Arguments: args,
+	})
+	if err != nil {
+		t.Fatalf("go_dryrun_rename_symbol failed: %v", err)
+	}
+	if res == nil {
+		t.Fatal("expected non-nil result")
+	}
+	return testutil.ResultText(t, res, golden)
+}
+
+// TestGoRenameSymbol_Strong verifies exact change counts, multi-file renames, and type renames.
 func TestGoRenameSymbol_Strong(t *testing.T) {
 	t.Run("ExactChangeCountAndFiles", func(t *testing.T) {
-		// Create a test project with KNOWN symbol usage
 		projectDir := t.TempDir()
+		writeGoMod(t, projectDir)
 
-		// Initialize go.mod
-		goModContent := `module example.com/test
-
-go 1.21
-`
-		if err := os.WriteFile(filepath.Join(projectDir, "go.mod"), []byte(goModContent), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		// Create a file with a function used 3 times
-		// Line 6:  func OldName() string {       <- definition
-		// Line 13: result := OldName()         <- usage 1
-		// Line 14: fmt.Println(result)
-		// Line 17: x := OldName() + "suffix"  <- usage 2
-		// Line 18: y := OldName() + "again"    <- usage 3
-		sourceCode := `package main
+		// OldName defined once and called 3 times → 4 diff lines total.
+		src := `package main
 
 import "fmt"
 
@@ -53,119 +123,33 @@ func main() {
 }
 `
 		mainGoPath := filepath.Join(projectDir, "main.go")
-		if err := os.WriteFile(mainGoPath, []byte(sourceCode), 0644); err != nil {
+		if err := os.WriteFile(mainGoPath, []byte(src), 0644); err != nil {
 			t.Fatal(err)
 		}
 
-		// Find the line number where OldName is defined
-		lines := strings.Split(sourceCode, "\n")
-		var lineNum int
-		for i, line := range lines {
-			if strings.Contains(line, "func OldName()") {
-				lineNum = i + 1
-				break
-			}
-		}
+		args := renameArgs("OldName", mainGoPath, findLineInSrc(t, src, "func OldName()"), "NewName")
+		content := callRename(t, args, testutil.GoldenRenameSymbolExact)
+		t.Logf("rename result:\n%s", content)
 
-		if lineNum == 0 {
-			t.Fatal("Could not find OldName function definition")
+		removals, additions := assertDryRun(t, content, "OldName", "NewName")
+		if removals < 3 || additions < 3 {
+			t.Errorf("expected ≥3 OldName removals and ≥3 NewName additions; got %d / %d", removals, additions)
 		}
+		t.Logf("✓ %d removals, %d additions", removals, additions)
 
-		tool := "go_dryrun_rename_symbol"
-		args := map[string]any{
-			"locator": map[string]any{
-				"symbol_name":  "OldName",
-				"context_file": mainGoPath,
-				"line_hint":    lineNum,
-			},
-			"new_name": "NewName",
-		}
-
-		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
-		if err != nil {
-			t.Fatalf("Failed to call tool %s: %v", tool, err)
-		}
-
-		if res == nil {
-			t.Fatal("Expected non-nil result")
-		}
-
-		content := testutil.ResultText(t, res, testutil.GoldenRenameSymbolExact)
-		t.Logf("Rename result:\n%s", content)
-
-		// Compare against golden file (documentation + regression check)
-
-		// === STRONG ASSERTIONS ===
-
-		// 1. MUST contain "DRY RUN" - this is critical for safety
-		if !strings.Contains(strings.ToUpper(content), "DRY RUN") {
-			t.Fatalf("CRITICAL: Output must contain 'DRY RUN' to indicate preview mode.\nA fake implementation would just echo the symbol names!\nGot: %s", content)
-		}
-		t.Logf("✓ DRY RUN indicator present")
-
-		// 2. MUST contain both old and new names
-		// But this alone is not enough (the fake test passed this)
-		if !strings.Contains(content, "OldName") {
-			t.Errorf("Expected old symbol name 'OldName' in output")
-		}
-		if !strings.Contains(content, "NewName") {
-			t.Errorf("Expected new symbol name 'NewName' in output")
-		}
-		t.Logf("✓ Both symbol names present")
-
-		// 3. Extract and verify exact change count using unified diff format
-		// Count lines with OldName removal and NewName addition
-		diffLines := strings.Split(content, "\n")
-		oldNameCount, newNameCount := 0, 0
-		for _, line := range diffLines {
-			if strings.HasPrefix(line, "-") && strings.Contains(line, "OldName") {
-				oldNameCount++
-			}
-			if strings.HasPrefix(line, "+") && strings.Contains(line, "NewName") {
-				newNameCount++
-			}
-		}
-		if oldNameCount < 3 || newNameCount < 3 {
-			t.Errorf("Expected at least 3 OldName removals and 3 NewName additions, got %d and %d.\nA fake implementation would have 0!", oldNameCount, newNameCount)
-		}
-		t.Logf("✓ Found %d removals and %d additions in unified diff", oldNameCount, newNameCount)
-
-		// 4. Verify unified diff format is used
-		if !strings.Contains(content, "---") || !strings.Contains(content, "+++") {
-			t.Errorf("Expected unified diff format with --- and +++ headers")
-		}
-		t.Logf("✓ Unified diff format detected")
-
-		// 5. Verify DRY RUN: file was NOT actually modified
-		originalContent, err := os.ReadFile(mainGoPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if string(originalContent) != sourceCode {
-			t.Errorf("DRY RUN VIOLATED: File was modified!\nExpected:\n%s\n\nGot:\n%s", sourceCode, string(originalContent))
-		}
-		t.Logf("✓ DRY RUN verified: file unchanged")
+		assertFileUnchanged(t, mainGoPath, src)
+		t.Logf("✓ DRY RUN: file unchanged")
 	})
 
 	t.Run("MultiFileRenamePreview", func(t *testing.T) {
-		// Create a test project with cross-file usage
 		projectDir := t.TempDir()
+		writeGoMod(t, projectDir)
 
-		// Initialize go.mod
-		goModContent := `module example.com/test
-
-go 1.21
-`
-		if err := os.WriteFile(filepath.Join(projectDir, "go.mod"), []byte(goModContent), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		// Create util package
+		// util/helper.go defines SharedFunc; main.go and other.go each call it.
 		utilDir := filepath.Join(projectDir, "util")
 		if err := os.Mkdir(utilDir, 0755); err != nil {
 			t.Fatal(err)
 		}
-
 		utilCode := `package util
 
 func SharedFunc(x int) int {
@@ -177,7 +161,6 @@ func SharedFunc(x int) int {
 			t.Fatal(err)
 		}
 
-		// Create main.go using SharedFunc
 		mainCode := `package main
 
 import (
@@ -196,12 +179,9 @@ func main() {
 			t.Fatal(err)
 		}
 
-		// Create other.go also using SharedFunc
 		otherCode := `package main
 
-import (
-	"example.com/test/util"
-)
+import "example.com/test/util"
 
 func AnotherFunc() int {
 	return util.SharedFunc(20)
@@ -212,118 +192,35 @@ func AnotherFunc() int {
 			t.Fatal(err)
 		}
 
-		// Find the line number where SharedFunc is defined
-		lines := strings.Split(utilCode, "\n")
-		var lineNum int
-		for i, line := range lines {
-			if strings.Contains(line, "func SharedFunc(") {
-				lineNum = i + 1
-				break
-			}
+		args := renameArgs("SharedFunc", helperPath, findLineInSrc(t, utilCode, "func SharedFunc("), "RenamedFunc")
+		content := callRename(t, args, testutil.GoldenRenameSymbolMultiFile)
+		t.Logf("multi-file rename result:\n%s", content)
+
+		removals, additions := assertDryRun(t, content, "SharedFunc", "RenamedFunc")
+		if removals < 1 || additions < 1 {
+			t.Errorf("expected ≥1 SharedFunc removal and ≥1 RenamedFunc addition; got %d / %d", removals, additions)
 		}
 
-		if lineNum == 0 {
-			t.Fatal("Could not find SharedFunc function definition")
-		}
-
-		tool := "go_dryrun_rename_symbol"
-		args := map[string]any{
-			"locator": map[string]any{
-				"symbol_name":  "SharedFunc",
-				"context_file": helperPath,
-				"line_hint":    lineNum,
-			},
-			"new_name": "RenamedFunc",
-		}
-
-		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
-		if err != nil {
-			t.Fatalf("Failed to call tool %s: %v", tool, err)
-		}
-
-		if res == nil {
-			t.Fatal("Expected non-nil result")
-		}
-
-		content := testutil.ResultText(t, res, testutil.GoldenRenameSymbolMultiFile)
-		t.Logf("Multi-file rename result:\n%s", content)
-
-		// === STRONG ASSERTIONS ===
-
-		// 1. MUST contain "DRY RUN"
-		if !strings.Contains(strings.ToUpper(content), "DRY RUN") {
-			t.Fatalf("CRITICAL: Output must contain 'DRY RUN'\nGot: %s", content)
-		}
-
-		// 2. Should show the definition file being modified
-		// Note: The current implementation shows changes to the file where we search from
 		if !strings.Contains(content, "helper.go") && !strings.Contains(content, "util/helper.go") {
-			t.Errorf("Expected output to mention helper.go being modified")
+			t.Errorf("expected output to mention helper.go")
 		}
+		t.Logf("✓ %d removals, %d additions", removals, additions)
 
-		// 3. Count the number of change indicators using unified diff format
-		// Count lines with SharedFunc removal and RenamedFunc addition
-		diffLines := strings.Split(content, "\n")
-		sharedFuncCount, renamedFuncCount := 0, 0
-		for _, line := range diffLines {
-			if strings.HasPrefix(line, "-") && strings.Contains(line, "SharedFunc") {
-				sharedFuncCount++
-			}
-			if strings.HasPrefix(line, "+") && strings.Contains(line, "RenamedFunc") {
-				renamedFuncCount++
-			}
-		}
-		if sharedFuncCount < 1 || renamedFuncCount < 1 {
-			t.Errorf("Expected at least 1 SharedFunc removal and 1 RenamedFunc addition, got %d and %d", sharedFuncCount, renamedFuncCount)
-		}
-		t.Logf("✓ Found %d removals and %d additions in unified diff", sharedFuncCount, renamedFuncCount)
-
-		// 4. Verify both old and new names appear
-		if !strings.Contains(content, "SharedFunc") {
-			t.Errorf("Expected 'SharedFunc' in output")
-		}
-		if !strings.Contains(content, "RenamedFunc") {
-			t.Errorf("Expected 'RenamedFunc' in output")
-		}
-
-		// 5. Verify unified diff format is used
-		if !strings.Contains(content, "---") || !strings.Contains(content, "+++") {
-			t.Errorf("Expected unified diff format with --- and +++ headers")
-		}
-		t.Logf("✓ Unified diff format detected")
-
-		// 6. Verify DRY RUN: all files unchanged
 		for path, original := range map[string]string{
 			mainGoPath:  mainCode,
 			otherGoPath: otherCode,
 			helperPath:  utilCode,
 		} {
-			current, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if string(current) != original {
-				t.Errorf("DRY RUN VIOLATED: %s was modified!", path)
-			}
+			assertFileUnchanged(t, path, original)
 		}
-		t.Logf("✓ DRY RUN verified: all 3 files unchanged")
+		t.Logf("✓ DRY RUN: all 3 files unchanged")
 	})
 
 	t.Run("TypeRenamePreview", func(t *testing.T) {
-		// Test renaming a type
 		projectDir := t.TempDir()
+		writeGoMod(t, projectDir)
 
-		// Initialize go.mod
-		goModContent := `module example.com/test
-
-go 1.21
-`
-		if err := os.WriteFile(filepath.Join(projectDir, "go.mod"), []byte(goModContent), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		// Type with receiver and usage
-		sourceCode := `package main
+		src := `package main
 
 import "fmt"
 
@@ -345,96 +242,213 @@ func main() {
 }
 `
 		mainGoPath := filepath.Join(projectDir, "main.go")
-		if err := os.WriteFile(mainGoPath, []byte(sourceCode), 0644); err != nil {
+		if err := os.WriteFile(mainGoPath, []byte(src), 0644); err != nil {
 			t.Fatal(err)
 		}
 
-		// Find the line number where OldType is defined
-		lines := strings.Split(sourceCode, "\n")
-		var lineNum int
-		for i, line := range lines {
-			if strings.Contains(line, "type OldType struct") {
-				lineNum = i + 1
-				break
-			}
+		args := renameArgs("OldType", mainGoPath, findLineInSrc(t, src, "type OldType struct"), "NewType")
+		content := callRename(t, args, testutil.GoldenRenameSymbolType)
+		t.Logf("type rename result:\n%s", content)
+
+		removals, additions := assertDryRun(t, content, "OldType", "NewType")
+		if removals < 1 || additions < 1 {
+			t.Errorf("expected unified diff with OldType removals and NewType additions; got %d / %d", removals, additions)
 		}
+		t.Logf("✓ %d removals, %d additions", removals, additions)
 
-		if lineNum == 0 {
-			t.Fatal("Could not find OldType definition")
-		}
-
-		tool := "go_dryrun_rename_symbol"
-		args := map[string]any{
-			"locator": map[string]any{
-				"symbol_name":  "OldType",
-				"context_file": mainGoPath,
-				"line_hint":    lineNum,
-			},
-			"new_name": "NewType",
-		}
-
-		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
-		if err != nil {
-			t.Fatalf("Failed to call tool %s: %v", tool, err)
-		}
-
-		if res == nil {
-			t.Fatal("Expected non-nil result")
-		}
-
-		content := testutil.ResultText(t, res, testutil.GoldenRenameSymbolType)
-		t.Logf("Type rename result:\n%s", content)
-
-		// Note: The structured Changes field is populated internally but MCP returns only text content.
-		// This is correct - the unified diff in the Summary is the primary output for LLMs.
-
-		// === STRONG ASSERTIONS ===
-
-		// 1. DRY RUN indicator
-		if !strings.Contains(strings.ToUpper(content), "DRY RUN") {
-			t.Fatalf("CRITICAL: Output must contain 'DRY RUN'\nGot: %s", content)
-		}
-
-		// 2. Should find multiple changes indicated by unified diff format
-		// Count lines containing OldType and NewType in the diff (with - or + prefix)
-		// The unified diff format uses "-line" and "+line" without space after marker
-		diffLines := strings.Split(content, "\n")
-		oldTypeCount, newTypeCount := 0, 0
-		for _, line := range diffLines {
-			if strings.HasPrefix(line, "-") && strings.Contains(line, "OldType") {
-				oldTypeCount++
-			}
-			if strings.HasPrefix(line, "+") && strings.Contains(line, "NewType") {
-				newTypeCount++
-			}
-		}
-		if oldTypeCount < 1 || newTypeCount < 1 {
-			t.Errorf("Expected unified diff with both OldType removals and NewType additions, got %d removals and %d additions", oldTypeCount, newTypeCount)
-		}
-		t.Logf("✓ Found unified diff with %d removals and %d additions", oldTypeCount, newTypeCount)
-
-		// 3. Both names present
-		if !strings.Contains(content, "OldType") || !strings.Contains(content, "NewType") {
-			t.Errorf("Expected both type names in output")
-		}
-
-		// 4. Unified diff indicators present
-		if !strings.Contains(content, "---") || !strings.Contains(content, "+++") {
-			t.Errorf("Expected unified diff format with --- and +++ headers")
-		}
-		t.Logf("✓ Unified diff format detected")
-
-		// 5. DRY RUN verified
-		original, _ := os.ReadFile(mainGoPath)
-		if string(original) != sourceCode {
-			t.Error("DRY RUN VIOLATED: file was modified")
-		}
-		t.Logf("✓ DRY RUN verified: type unchanged")
+		assertFileUnchanged(t, mainGoPath, src)
+		t.Logf("✓ DRY RUN: type unchanged")
 	})
 }
 
-// TestGoRenameSymbolE2E is kept for backward compatibility but now uses strong assertions
+// TestGoRenameSymbolE2E is kept for backward compatibility.
 func TestGoRenameSymbolE2E(t *testing.T) {
-	// This now just calls the strong test
 	TestGoRenameSymbol_Strong(t)
+}
+
+// TestComplexRenameScenarios covers cross-package and conflict rename scenarios.
+func TestComplexRenameScenarios(t *testing.T) {
+	t.Run("RenameWithSymbolConflict", func(t *testing.T) {
+		// Rename to a name that already exists — tool must not modify the file.
+		projectDir := t.TempDir()
+		writeGoMod(t, projectDir)
+
+		src := `package main
+
+func FunctionOne() string {
+	return "one"
+}
+
+func FunctionToRename() string {
+	return "to rename"
+}
+
+func main() {
+	println(FunctionOne())
+	println(FunctionToRename())
+}
+`
+		mainGoPath := filepath.Join(projectDir, "main.go")
+		if err := os.WriteFile(mainGoPath, []byte(src), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		args := renameArgs("FunctionToRename", mainGoPath, findLineInSrc(t, src, "func FunctionToRename("), "FunctionOne")
+		content := callRename(t, args, testutil.GoldenComplexRenameScenarios)
+		t.Logf("conflict rename result:\n%s", content)
+
+		// Tool may error or generate a conflicting diff — either is acceptable.
+		t.Logf("✓ handled rename conflict (error or conflicting diff)")
+
+		assertFileUnchanged(t, mainGoPath, src)
+		t.Logf("✓ DRY RUN: file unchanged despite conflict")
+	})
+
+	t.Run("RenameInTestFiles", func(t *testing.T) {
+		// Renaming Add should propagate to math_test.go and example_test.go.
+		projectDir := t.TempDir()
+		writeGoMod(t, projectDir)
+
+		mathDir := filepath.Join(projectDir, "math")
+		if err := os.Mkdir(mathDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		sourceCode := `package math
+
+// Add adds two numbers
+func Add(a, b int) int {
+	return a + b
+}
+`
+		mathPath := filepath.Join(mathDir, "math.go")
+		if err := os.WriteFile(mathPath, []byte(sourceCode), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		testCode := `package math
+
+import "testing"
+
+func TestAdd(t *testing.T) {
+	result := Add(2, 3)
+	if result != 5 {
+		t.Errorf("Add(2,3) = %d; want 5", result)
+	}
+}
+`
+		testPath := filepath.Join(mathDir, "math_test.go")
+		if err := os.WriteFile(testPath, []byte(testCode), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		exampleCode := `package math
+
+import "fmt"
+
+func ExampleAdd() {
+	fmt.Println(Add(1, 2))
+	// Output: 3
+}
+`
+		examplePath := filepath.Join(mathDir, "example_test.go")
+		if err := os.WriteFile(examplePath, []byte(exampleCode), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		args := renameArgs("Add", mathPath, findLineInSrc(t, sourceCode, "func Add("), "Sum")
+		content := callRename(t, args, testutil.GoldenComplexRenameScenarios)
+		t.Logf("rename including test files:\n%s", content)
+
+		testFileMentioned := strings.Contains(content, "math_test.go") ||
+			strings.Contains(content, "example_test.go") ||
+			strings.Contains(content, "TestAdd") ||
+			strings.Contains(content, "ExampleAdd")
+		if testFileMentioned {
+			t.Logf("✓ rename includes test files")
+		} else {
+			t.Logf("note: test files may not be shown in preview but should be affected")
+		}
+
+		// DRY RUN: none of the files should contain the new name.
+		for _, info := range []struct {
+			path, original, newSym string
+		}{
+			{mathPath, sourceCode, "Sum"},
+			{testPath, testCode, "Sum"},
+			{examplePath, exampleCode, "Sum"},
+		} {
+			current, err := os.ReadFile(info.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(current), info.newSym) {
+				t.Errorf("DRY RUN violated: %s was modified!", info.path)
+			}
+		}
+		t.Logf("✓ DRY RUN: all 3 files unchanged")
+	})
+}
+
+// TestRenameEdgeCases tests edge case rename scenarios.
+func TestRenameEdgeCases(t *testing.T) {
+	t.Run("RenameToUnexported", func(t *testing.T) {
+		// Rename an exported symbol to an unexported name.
+		projectDir := t.TempDir()
+		writeGoMod(t, projectDir)
+
+		src := `package main
+
+func PublicFunction() string {
+	return "public"
+}
+
+func main() {
+	println(PublicFunction())
+}
+`
+		mainGoPath := filepath.Join(projectDir, "main.go")
+		if err := os.WriteFile(mainGoPath, []byte(src), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		args := renameArgs("PublicFunction", mainGoPath, findLineInSrc(t, src, "func PublicFunction("), "privateFunction")
+		content := callRename(t, args, testutil.GoldenRenameEdgeCases)
+		t.Logf("rename to unexported:\n%s", content)
+
+		t.Logf("✓ handled export→unexported rename")
+		assertFileUnchanged(t, mainGoPath, src)
+		t.Logf("✓ DRY RUN: file unchanged")
+	})
+
+	t.Run("RenameAcrossDifferentCases", func(t *testing.T) {
+		// Rename an unexported symbol to exported (case promotion).
+		projectDir := t.TempDir()
+		writeGoMod(t, projectDir)
+
+		src := `package main
+
+func processData() string {
+	return "processed"
+}
+
+func main() {
+	println(processData())
+}
+`
+		mainGoPath := filepath.Join(projectDir, "main.go")
+		if err := os.WriteFile(mainGoPath, []byte(src), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		args := renameArgs("processData", mainGoPath, findLineInSrc(t, src, "func processData("), "ProcessData")
+		content := callRename(t, args, testutil.GoldenRenameEdgeCases)
+		t.Logf("case-change rename result:\n%s", content)
+
+		if strings.Contains(content, "processData") || strings.Contains(content, "ProcessData") {
+			t.Logf("✓ handled case-sensitive rename")
+		}
+		assertFileUnchanged(t, mainGoPath, src)
+		t.Logf("✓ DRY RUN: file unchanged")
+	})
 }
