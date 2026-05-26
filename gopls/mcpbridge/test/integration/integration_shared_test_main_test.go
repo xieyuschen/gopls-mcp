@@ -25,6 +25,10 @@ import (
 var globalSession *mcp.ClientSession
 var globalCtx context.Context
 
+// globalGoplsMcpDir is the path to the mcpbridge directory (gopls/mcpbridge).
+// Used by tests that query the real gopls-mcp codebase rather than temp projects.
+var globalGoplsMcpDir string
+
 // TestMain sets up the shared MCP server before running any tests in the e2e package.
 // This function runs ONCE for the entire e2e test package, not per test file.
 //
@@ -52,6 +56,9 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Failed to set executable permissions: %v\n", err)
 		os.Exit(1)
 	}
+
+	// Initialize globalGoplsMcpDir to the mcpbridge directory (for real-codebase tests)
+	globalGoplsMcpDir, _ = filepath.Abs("../..")
 
 	// Create a minimal shared workdir (must be a valid Go project for gopls)
 	sharedWorkdir := filepath.Join(projectRoot, "gopls", "mcpbridge", "test", "testdata", "projects", "simple")
@@ -120,25 +127,30 @@ func startSharedServer(goplsMcpPath, sharedWorkdir string) (*mcp.ClientSession, 
 //	})
 func runTableDrivenTests(t *testing.T, tests map[string]testCase) {
 	for name, tc := range tests {
+		tc := tc
 		t.Run(name, func(t *testing.T) {
-			// Set up project if specified
-			if tc.project != "" {
-				_ = testutil.CopyProjectTo(t, tc.project)
-				// Update Cwd in args if it exists
-				if tc.args != nil {
-					// CopyProjectTo already sets up the directory, we just need to ensure it's used
-				}
+			if tc.skip {
+				t.Skip(tc.skipReason)
 			}
 
-			// Call the tool
+			// Resolve args: setup func takes priority over static args.
+			args := tc.args
+			if tc.setup != nil {
+				args = tc.setup(t)
+			}
+
+			// Set up project if specified.
+			if tc.project != "" {
+				_ = testutil.CopyProjectTo(t, tc.project)
+			}
+
 			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{
 				Name:      tc.tool,
-				Arguments: tc.args,
+				Arguments: args,
 			})
 			if err != nil {
 				t.Fatalf("Failed to call tool %s: %v", tc.tool, err)
 			}
-
 			if res == nil {
 				t.Fatal("Expected non-nil result")
 			}
@@ -146,7 +158,6 @@ func runTableDrivenTests(t *testing.T, tests map[string]testCase) {
 			content := testutil.ResultText(t, res, "")
 			t.Logf("%s output:\n%s", tc.tool, truncateString(content, 500))
 
-			// Run all assertions
 			for i, assert := range tc.assertions {
 				t.Run(fmt.Sprintf("Assertion_%d_%s", i, assert.description), func(t *testing.T) {
 					if !assert.check(content) {

@@ -29,8 +29,6 @@ const (
 	GoldenDefinitionNoSymbol         = "go_definition_no_symbol.golden"
 	// go_definition - cross-file
 	GoldenDefinitionCrossFileFunction = "go_definition_cross_file_function.golden"
-	GoldenDefinitionCrossFileType     = "go_definition_cross_file_type.golden"
-	GoldenDefinitionCrossFileMethod   = "go_definition_cross_file_method.golden"
 
 	// go_implementation
 	GoldenImplementationInterface       = "go_implementation_interface.golden"
@@ -42,43 +40,19 @@ const (
 	GoldenSymbolReferencesCrossFile    = "go_symbol_references_cross_file.golden"
 	GoldenSymbolReferencesNoReferences = "go_symbol_references_no_references.golden"
 	GoldenSymbolReferencesType         = "go_symbol_references_type.golden"
-	GoldenSymbolReferencesTests        = "go_symbol_references_test_files_e2e.golden"
 
-	// Call Hierarchy Tool (go_get_call_hierarchy)
-	// Note: Each subtest has its own golden file to avoid overwrites
-	GoldenCallHierarchyBasicBothDirections       = "go_get_call_hierarchy_basic_both_directions.golden"
-	GoldenCallHierarchyBasicIncomingOnly         = "go_get_call_hierarchy_basic_incoming_only.golden"
-	GoldenCallHierarchyBasicOutgoingOnly         = "go_get_call_hierarchy_basic_outgoing_only.golden"
-	GoldenCallHierarchyBasicDefaultDirection     = "go_get_call_hierarchy_basic_default_direction.golden"
-	GoldenCallHierarchyComplexMultipleCallers    = "go_get_call_hierarchy_complex_multiple_callers.golden"
-	GoldenCallHierarchyComplexCallChain          = "go_get_call_hierarchy_complex_call_chain.golden"
-	GoldenCallHierarchyError                     = "go_get_call_hierarchy_error_handling.golden"
-	GoldenCallHierarchyInterface                 = "go_get_call_hierarchy_interface_methods.golden"
-	GoldenCallHierarchyMultipleCallsSameCaller   = "go_get_call_hierarchy_multiple_calls_same_caller.golden"
-	GoldenCallHierarchyMultipleCallsDifferent    = "go_get_call_hierarchy_multiple_calls_different.golden"
-	GoldenCallHierarchyMultipleFilesCrossFile    = "go_get_call_hierarchy_multiple_files_cross_file.golden"
-	GoldenCallHierarchyMultipleFilesCrossPackage = "go_get_call_hierarchy_multiple_files_cross_package.golden"
-	GoldenCallHierarchyOutputFormat              = "go_get_call_hierarchy_output_format.golden"
-	GoldenCallHierarchySpecialCasesRecursive     = "go_get_call_hierarchy_special_cases_recursive.golden"
-	GoldenCallHierarchySpecialCasesDefer         = "go_get_call_hierarchy_special_cases_defer.golden"
-	GoldenCallHierarchySpecialCasesGoroutine     = "go_get_call_hierarchy_special_cases_goroutine.golden"
-	GoldenCallHierarchyStdlibCalls               = "go_get_call_hierarchy_stdlib_calls.golden"
-	GoldenCallHierarchyStructMethodsValue        = "go_get_call_hierarchy_struct_methods_value.golden"
-	GoldenCallHierarchyStructMethodsPointer      = "go_get_call_hierarchy_struct_methods_pointer.golden"
-	GoldenCallHierarchyStructMethodsMethodCalls  = "go_get_call_hierarchy_struct_methods_method_calls.golden"
+	// Call Hierarchy Tool (go_get_call_hierarchy) — no golden files (table-driven, uses "")
 
 	// Dependency Graph Tool (go_get_dependency_graph)
 	GoldenDependencyGraphBasic        = "go_get_dependency_graph_basic_functionality.golden"
 	GoldenDependencyGraphComplex      = "go_get_dependency_graph_complex_scenarios.golden"
 	GoldenDependencyGraphDependents   = "go_get_dependency_graph_dependents.golden"
 	GoldenDependencyGraphError        = "go_get_dependency_graph_error_handling.golden"
-	GoldenDependencyGraphIntegration  = "go_get_dependency_graph_integration.golden"
 	GoldenDependencyGraphOutputFormat = "go_get_dependency_graph_output_format.golden"
 	GoldenDependencyGraphStdlib       = "go_get_dependency_graph_stdlib_packages.golden"
 	GoldenDependencyGraphTransitive   = "go_get_dependency_graph_transitive_dependencies.golden"
 
 	// Rename Symbol Tool (go_dryrun_rename_symbol)
-	GoldenRenameSymbolStrong    = "go_dryrun_rename_symbol_strong.golden"
 	GoldenRenameSymbolExact     = "go_dryrun_rename_symbol_exact_count.golden"
 	GoldenRenameSymbolMultiFile = "go_dryrun_rename_symbol_multi_file.golden"
 	GoldenRenameSymbolType      = "go_dryrun_rename_symbol_type.golden"
@@ -88,63 +62,16 @@ const (
 	// They test specific language features, workflows, or edge cases
 
 	// Generics Support (cross-cutting tests for all tools with generics)
-	GoldenGenericsSupport           = "etc_generics_support.golden"
-	GoldenGenericsBasicFunctions    = "etc_generics_basic_functions.golden"
-	GoldenGenericsConstraints       = "etc_generics_constraints.golden"
-	GoldenGenericsGenericInterfaces = "etc_generics_generic_interfaces.golden"
-	GoldenGenericsGenericTypes      = "etc_generics_generic_types.golden"
-	GoldenGenericsNestedGenerics    = "etc_generics_nested_generics.golden"
-	GoldenGenericsRealWorldUsage    = "etc_generics_real_world_usage.golden"
-	GoldenGenericsTypeInference     = "etc_generics_type_inference.golden"
-	GoldenInterfaceSatisfaction     = "etc_interface_satisfaction.golden"
+	GoldenGenericsSupport       = "etc_generics_support.golden"
+	GoldenInterfaceSatisfaction = "etc_interface_satisfaction.golden"
 
-	// Refactoring Scenarios (multi-tool refactoring workflows)
-	GoldenRefactoringSafeRename          = "etc_refactoring_safe_rename.golden"
-	GoldenRefactoringSafeDelete          = "etc_refactoring_safe_delete.golden"
-	GoldenRefactoringExtractFunction     = "etc_refactoring_extract_function.golden"
-	GoldenRefactoringInlineFunction      = "etc_refactoring_inline_function.golden"
-	GoldenRefactoringMoveSymbol          = "etc_refactoring_move_symbol.golden"
-	GoldenRefactoringChangeSignature     = "etc_refactoring_change_signature.golden"
-	GoldenRefactoringInterfaceExtraction = "etc_refactoring_interface_extraction.golden"
-	GoldenRefactoringMultiFileChange     = "etc_refactoring_multi_file_change.golden"
-	GoldenRefactoringRealWorldScenario   = "etc_refactoring_real_world_scenario.golden"
-	GoldenRenameEdgeCases                = "etc_rename_edge_cases.golden"
-	GoldenComplexRenameScenarios         = "etc_complex_rename_scenarios.golden"
-
-	// Performance Tests
-	GoldenPerformanceBatchOperations = "etc_performance_batch_operations.golden"
-	GoldenPerformanceCallHierarchy   = "etc_performance_call_hierarchy.golden"
-	GoldenPerformanceLargeFiles      = "etc_performance_large_files.golden"
-	GoldenPerformanceLargeTestFile   = "etc_performance_large_test_file.golden"
-
-	// Comprehensive Workflows (All Tools)
-	GoldenAllTools           = "etc_e2e_all_tools.golden"
-	GoldenRealCodebase       = "etc_e2e_real_codebase.golden"
-	GoldenRealCodebaseRename = "etc_e2e_refactoring.golden"
-
-	// Real-World Workflow Tests
-	GoldenWorkflowCrossModule    = "etc_real_cross_module_analysis.golden"
-	GoldenWorkflowDiagnostics    = "etc_real_diagnostics_and_quality.golden"
-	GoldenWorkflowErrorScenarios = "etc_real_error_scenarios.golden"
-	GoldenWorkflowMultiPackage   = "etc_real_multi_package_analysis.golden"
-	GoldenWorkflowPerformance    = "etc_real_performance.golden"
-	GoldenWorkflowRefactoring    = "etc_real_refactoring_scenarios.golden"
-	GoldenWorkflowToolChaining   = "etc_real_tool_chain_chaining_multiple_tools.golden"
-	GoldenWorkflowUnderstandArch = "etc_real_understand_architecture.golden"
+	// Rename edge cases and complex scenarios
+	GoldenRenameEdgeCases        = "etc_rename_edge_cases.golden"
+	GoldenComplexRenameScenarios = "etc_complex_rename_scenarios.golden"
 
 	// Error Scenarios
-	GoldenErrorScenarios = "etc_e2e_error_scenarios.golden"
-	GoldenErrorHandling  = "etc_error_handling_e2e.golden"
-	GoldenAddNegative    = "etc_add_negative.golden"
-	GoldenSomething      = "etc_something.golden"
-	GoldenMain           = "etc_main.golden"
+	GoldenErrorHandling = "etc_error_handling_e2e.golden"
 
 	// File Watching
 	GoldenFileWatching = "etc_file_watching_e2e.golden"
-
-	// Stdlib navigation/references/types tests
-	GoldenStdlibComplexTypes = "etc_stdlib_complex_types.golden"
-	GoldenStdlibNavigation   = "etc_stdlib_navigation.golden"
-	GoldenStdlibReferences   = "etc_stdlib_references.golden"
-	GoldenStdlibInterfaces   = "etc_stdlib_interfaces.golden"
 )
