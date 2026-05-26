@@ -1,17 +1,29 @@
 # Project Instructions for AI Code Assistant with gopls-mcp
 
-## Context
-You are an AI programming assistant helping users with Go code. You have access to gopls-mcp tools for semantic code analysis.
+## What gopls-mcp does (and what it doesn't)
 
-## CRITICAL PROHIBITIONS (NEVER DO THIS)
-1. NEVER use `go_search` for text content (comments, strings, TODOs). Use `Grep` tool.
-2. NEVER use grep/ripgrep for symbol discovery (definitions, references, implementations).
-3. NEVER fall back from exclusive capabilities (see Tool Selection Guide).
+gopls-mcp is **strictly a semantic Go layer** built on top of gopls's type
+checker. It exposes six tools — that's the whole surface area:
+
+| Task | Tool |
+|------|------|
+| Jump to definition | `go_definition` |
+| Find interface implementations | `go_implementation` |
+| Find symbol references | `go_symbol_references` |
+| Trace call relationships | `go_get_call_hierarchy` |
+| Analyze package dependencies | `go_get_dependency_graph` |
+| Preview a symbol rename | `go_dryrun_rename_symbol` |
+
+These cannot be replaced by `Grep` + `Read`, because Go's type system makes
+interfaces, scopes, and identity invisible to text search.
+
+For *anything else* — listing packages, reading `go.mod`, searching symbol
+names, running `go build`, scanning files — use your native tools (`Glob`,
+`Grep`, `Read`, `Bash`). They are already optimal for those jobs, so we
+deliberately don't ship duplicates.
 
 <!-- Marker: AUTO-GEN-START -->
-## Tool Selection Guide
-
-### Code relationships (Exclusive Capabilities - NO FALLBACK)
+### Semantic tools (Exclusive - no grep/Read fallback)
 | Task | Tool |
 |------|------|
 | Find interface implementations | go_implementation |
@@ -21,48 +33,35 @@ You are an AI programming assistant helping users with Go code. You have access 
 | Analyze dependencies | go_get_dependency_graph |
 | Preview renaming | go_dryrun_rename_symbol |
 
-### Code exploration (Enhanced Capabilities - FALLBACK ALLOWED)
-| Task | Tool | Fallback after 3 failures |
-|------|------|---------------------------|
-| List package symbols | go_list_package_symbols | Glob + Read |
-| List module packages | go_list_module_packages | find |
-| Analyze workspace | go_analyze_workspace | Manual exploration |
-| Quick project overview | go_get_started | Read README + go.mod |
-| Search symbols by name | go_search | grep + Read |
-| Check compilation | go_build_check | go build |
-| Get symbol details | go_get_package_symbol_detail | Read |
-| List modules | go_list_modules | Read go.mod |
 <!-- Marker: AUTO-GEN-END -->
 
-## Integration Workflow
-1. **Classify task type**: Route to Exclusive capabilities, Enhanced capabilities, or Grep tool based on the Tool Selection Guide.
-2. **Validate**: Check intent against "Tool-Specific Parameters & Constraints" BEFORE execution.
-3. **Construct & Execute**: Extract exact symbol names and file paths, execute the tool.
-4. **Format Output**: Present file:line locations, signatures, and documentation cleanly. Do not dump raw JSON.
+## Routing rules
 
-## Tool-Specific Parameters & Constraints
+1. **Semantic relationship?** Use the table above. Never fall back to grep —
+   you'd miss interface satisfaction, shadowing, cross-package identity.
+2. **Text search / file listing / build / mod?** Use `Grep` / `Glob` /
+   `Read` / `Bash`. There is no gopls-mcp tool for these.
+3. **Output**: present `file:line` locations, signatures, and docs cleanly.
+   Never dump raw JSON.
 
-* **go_search**:
-    * FATAL: `query` MUST NOT contain spaces or semantic descriptions.
-    * Must be symbol names only (single token). Correct: `query="ParseInt"`.
-    * Does NOT search comments or documentation.
-* **go_implementation**:
-    * Only for interfaces and types. STRICTLY PROHIBITED for functions.
-* **go_get_package_symbol_detail**:
-    * `symbol_filters` format: `[{name: "Start", receiver: "*Server"}]`.
-    * `receiver` requires exact string match (`"*Server"` != `"Server"`).
-* **General Parameters**:
-    * `symbol_name`: Do not include package prefix (Use `"Start"`, not `"Server.Start"`).
-    * `context_file`: Obtain strictly from the current file being analyzed.
+## Tool-specific constraints
 
-## Error Handling & Retry (Self-Correction)
-* Check if parameters strictly follow the constraints above.
-* Try a shorter/simpler symbol name.
-* Re-analyze code context before retrying.
+* **`go_implementation`**: Interfaces and types only. **Not** for functions.
+* **General locator parameters**:
+  * `symbol_name`: bare identifier, no package prefix
+    (`"Start"`, not `"Server.Start"`).
+  * `context_file`: an absolute path to the file you are currently reading
+    or where the symbol appears. The resolver uses this for scope and
+    import disambiguation.
 
-## Fallback Conditions (For Enhanced Capabilities ONLY)
-Trigger fallback manually IF AND ONLY IF:
-1. 3 consecutive tool failures.
-2. Timeout exceeds 30 seconds.
-3. Empty result returned when code existence is absolutely certain.
-*Note: Retry gopls-mcp tool first on the very next user query even after a previous fallback.*
+## Error handling
+
+If a semantic tool returns nothing, do **not** silently fall back to grep:
+
+1. Verify the symbol name is spelled exactly as in source (case-sensitive).
+2. Confirm `context_file` is correct and inside a Go module.
+3. For `go_implementation`, check that `parent_scope` points at the
+   interface, not the concrete type.
+
+Only after these checks fail should you fall back to manual `Read` of the
+relevant file — and only as diagnosis, not as a substitute capability.
