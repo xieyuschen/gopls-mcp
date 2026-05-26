@@ -54,8 +54,7 @@ func TestGenerateCLAUDEToolReference(t *testing.T) {
 
 	// Check that it contains expected sections (table format)
 	expectedSections := []string{
-		"### Code relationships (Exclusive Capabilities - NO FALLBACK)",
-		"### Code exploration (Enhanced Capabilities - FALLBACK ALLOWED)",
+		"### Semantic tools (Exclusive - no grep/Read fallback)",
 		"| Task | Tool |",
 	}
 
@@ -65,12 +64,14 @@ func TestGenerateCLAUDEToolReference(t *testing.T) {
 		}
 	}
 
-	// Check that it references some known tools
+	// Check that it references the surviving semantic tools
 	knownTools := []string{
-		"go_search",
 		"go_definition",
-		"go_build_check",
 		"go_implementation",
+		"go_symbol_references",
+		"go_get_call_hierarchy",
+		"go_get_dependency_graph",
+		"go_dryrun_rename_symbol",
 	}
 
 	for _, tool := range knownTools {
