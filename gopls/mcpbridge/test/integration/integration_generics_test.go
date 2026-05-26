@@ -406,11 +406,12 @@ func main() {
 	})
 }
 
-// TestInterfaceSatisfaction tests understanding why a type doesn't implement an interface.
+
+// TestInterfaceSatisfaction verifies that go_implementation finds interface
+// implementations correctly. Earlier subtests relying on go_build_check to
+// surface compilation diagnostics were removed when that tool was retired.
 func TestInterfaceSatisfaction(t *testing.T) {
-
-	t.Run("MissingMethod", func(t *testing.T) {
-		// Test case where type is missing a method to implement interface
+	t.Run("FindImplementation", func(t *testing.T) {
 		projectDir := t.TempDir()
 
 		goModContent := `module example.com/test
@@ -421,143 +422,6 @@ go 1.21
 			t.Fatal(err)
 		}
 
-		// Create code with missing method
-		sourceCode := `package main
-
-// Writer is an interface for writing data.
-type Writer interface {
-	Write([]byte) (int, error)
-	Close() error
-}
-
-// FileWriter writes to files (but doesn't implement Close).
-type FileWriter struct {
-	path string
-}
-
-// Write writes data to the file.
-func (f *FileWriter) Write(data []byte) (int, error) {
-	// Implementation would write to file
-	return len(data), nil
-}
-
-// Note: FileWriter is missing Close() method
-
-func main() {
-	var w Writer = &FileWriter{path: "/tmp/test.txt"}
-	_ = w
-}
-`
-		mainGoPath := filepath.Join(projectDir, "main.go")
-		if err := os.WriteFile(mainGoPath, []byte(sourceCode), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		// Start gopls-mcp
-
-		// Use go_build_check to see the error
-		tool := "go_build_check"
-		args := map[string]any{
-			"files": []string{mainGoPath},
-		}
-
-		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
-		if err != nil {
-			t.Fatalf("Failed to call tool %s: %v", tool, err)
-		}
-
-		if res == nil {
-			t.Fatal("Expected non-nil result")
-		}
-
-		content := testutil.ResultText(t, res, testutil.GoldenInterfaceSatisfaction)
-		t.Logf("Diagnostics for missing method:\n%s", content)
-
-		// Should report an error about FileWriter not implementing Writer
-		if strings.Contains(content, "FileWriter") || strings.Contains(content, "Writer") || strings.Contains(content, "error") {
-			t.Logf("✓ Diagnostics detect missing method implementation")
-		}
-	})
-
-	t.Run("WrongSignature", func(t *testing.T) {
-		// Test case where method has wrong signature
-		projectDir := t.TempDir()
-
-		goModContent := `module example.com/test
-
-go 1.21
-`
-		if err := os.WriteFile(filepath.Join(projectDir, "go.mod"), []byte(goModContent), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		// Create code with wrong method signature
-		sourceCode := `package main
-
-// Stringer is the standard Stringer interface.
-type Stringer interface {
-	String() string
-}
-
-// Person has a String method but with wrong signature (pointer receiver vs value).
-type Person struct {
-	Name string
-}
-
-// String has a pointer receiver but returns int instead of string.
-func (p *Person) String() int {
-	return len(p.Name)
-}
-
-func main() {
-	var s Stringer = &Person{Name: "Alice"}
-	_ = s
-}
-`
-		mainGoPath := filepath.Join(projectDir, "main.go")
-		if err := os.WriteFile(mainGoPath, []byte(sourceCode), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		// Start gopls-mcp
-
-		// Use go_build_check to see the error
-		tool := "go_build_check"
-		args := map[string]any{
-			"files": []string{mainGoPath},
-		}
-
-		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
-		if err != nil {
-			t.Fatalf("Failed to call tool %s: %v", tool, err)
-		}
-
-		if res == nil {
-			t.Fatal("Expected non-nil result")
-		}
-
-		content := testutil.ResultText(t, res, testutil.GoldenInterfaceSatisfaction)
-		t.Logf("Diagnostics for wrong signature:\n%s", content)
-
-		// Should report type mismatch
-		if strings.Contains(content, "Person") || strings.Contains(content, "Stringer") || strings.Contains(content, "error") {
-			t.Logf("✓ Diagnostics detect wrong method signature")
-		}
-	})
-
-	t.Run("CorrectImplementation", func(t *testing.T) {
-		// Test case where type correctly implements interface
-		projectDir := t.TempDir()
-
-		goModContent := `module example.com/test
-
-go 1.21
-`
-		if err := os.WriteFile(filepath.Join(projectDir, "go.mod"), []byte(goModContent), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		// Create code with correct implementation
 		sourceCode := `package main
 
 import "fmt"
@@ -587,117 +451,14 @@ func main() {
 			t.Fatal(err)
 		}
 
-		// Start gopls-mcp
-
-		t.Run("DiagnosticsShowNoErrors", func(t *testing.T) {
-			// Use go_build_check to verify no errors
-			tool := "go_build_check"
-			args := map[string]any{
-				"files": []string{mainGoPath},
-			}
-
-			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
-			if err != nil {
-				t.Fatalf("Failed to call tool %s: %v", tool, err)
-			}
-
-			if res == nil {
-				t.Fatal("Expected non-nil result")
-			}
-
-			content := testutil.ResultText(t, res, testutil.GoldenInterfaceSatisfaction)
-			t.Logf("Diagnostics for correct implementation:\n%s", content)
-
-			// Should not report interface errors
-			// Note: May have other diagnostics, but not about Person/Stringer mismatch
-			if !strings.Contains(content, "Person") && !strings.Contains(content, "Stringer") {
-				t.Logf("✓ No interface satisfaction errors")
-			} else {
-				t.Logf("Note: Got diagnostics, check if they're interface-related: %s", content)
-			}
-		})
-
-		t.Run("FindImplementation", func(t *testing.T) {
-			// Test finding implementation of interface
-			tool := "go_implementation"
-			args := map[string]any{
-				"locator": map[string]any{
-					"symbol_name":  "Stringer",
-					"context_file": mainGoPath,
-					"kind":         "interface",
-					"line_hint":    11,
-				},
-			}
-
-			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
-			if err != nil {
-				t.Fatalf("Failed to call tool %s: %v", tool, err)
-			}
-
-			if res == nil {
-				t.Fatal("Expected non-nil result")
-			}
-
-			content := testutil.ResultText(t, res, testutil.GoldenInterfaceSatisfaction)
-			t.Logf("Implementation result:\n%s", content)
-
-			// Should find Person as an implementation
-			if strings.Contains(content, "Person") || strings.Contains(content, "implementation") {
-				t.Logf("✓ Found Person implementing Stringer")
-			}
-		})
-	})
-
-	t.Run("GenericInterfaceSatisfaction", func(t *testing.T) {
-		// Test generic interface satisfaction
-		projectDir := t.TempDir()
-
-		goModContent := `module example.com/test
-
-go 1.21
-`
-		if err := os.WriteFile(filepath.Join(projectDir, "go.mod"), []byte(goModContent), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		// Create code with generic interface
-		sourceCode := `package main
-
-// Equaler is a generic interface for types that can be compared for equality.
-type Equaler[T any] interface {
-	Equals(other T) bool
-}
-
-// Point is a simple struct.
-type Point struct {
-	X, Y int
-}
-
-// Equals compares two points.
-func (p Point) Equals(other Point) bool {
-	return p.X == other.X && p.Y == other.Y
-}
-
-func main() {
-	p1 := Point{X: 1, Y: 2}
-	p2 := Point{X: 1, Y: 2}
-
-	var e Equaler[Point] = p1
-	equal := e.Equals(p2)
-	_ = equal
-}
-`
-		mainGoPath := filepath.Join(projectDir, "main.go")
-		if err := os.WriteFile(mainGoPath, []byte(sourceCode), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		// Start gopls-mcp
-
-		// Use go_build_check to verify no errors
-		tool := "go_build_check"
+		tool := "go_implementation"
 		args := map[string]any{
-			"files": []string{mainGoPath},
+			"locator": map[string]any{
+				"symbol_name":  "Stringer",
+				"context_file": mainGoPath,
+				"kind":         "interface",
+				"line_hint":    6,
+			},
 		}
 
 		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
@@ -710,94 +471,10 @@ func main() {
 		}
 
 		content := testutil.ResultText(t, res, testutil.GoldenInterfaceSatisfaction)
-		t.Logf("Diagnostics for generic interface:\n%s", content)
+		t.Logf("Implementation result:\n%s", content)
 
-		// Should not report errors for correct generic interface implementation
-		t.Logf("✓ Generic interface satisfaction checked")
-	})
-
-	t.Run("EmbeddedInterfaces", func(t *testing.T) {
-		// Test interface with embedded interfaces
-		projectDir := t.TempDir()
-
-		goModContent := `module example.com/test
-
-go 1.21
-`
-		if err := os.WriteFile(filepath.Join(projectDir, "go.mod"), []byte(goModContent), 0644); err != nil {
-			t.Fatal(err)
+		if !strings.Contains(content, "Person") && !strings.Contains(content, "implementation") {
+			t.Errorf("Expected go_implementation to find Person, got: %s", content)
 		}
-
-		// Create code with embedded interfaces
-		sourceCode := `package main
-
-// Reader is the standard Reader interface.
-type Reader interface {
-	Read([]byte) (int, error)
-}
-
-// Writer is the standard Writer interface.
-type Writer interface {
-	Write([]byte) (int, error)
-}
-
-// ReadWriter combines Reader and Writer.
-type ReadWriter interface {
-	Reader
-	Writer
-}
-
-// Buffer implements ReadWriter.
-type Buffer struct {
-	data []byte
-	pos  int
-}
-
-func (b *Buffer) Read(p []byte) (n int, err error) {
-	if b.pos >= len(b.data) {
-		return 0, nil // EOF
-	}
-	n = copy(p, b.data[b.pos:])
-	b.pos += n
-	return n, nil
-}
-
-func (b *Buffer) Write(p []byte) (n int, err error) {
-	b.data = append(b.data, p...)
-	return len(p), nil
-}
-
-func main() {
-	var rw ReadWriter = &Buffer{}
-	_ = rw
-}
-`
-		mainGoPath := filepath.Join(projectDir, "main.go")
-		if err := os.WriteFile(mainGoPath, []byte(sourceCode), 0644); err != nil {
-			t.Fatal(err)
-		}
-
-		// Start gopls-mcp
-
-		// Use go_build_check to verify no errors
-		tool := "go_build_check"
-		args := map[string]any{
-			"files": []string{mainGoPath},
-		}
-
-		res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
-		if err != nil {
-			t.Fatalf("Failed to call tool %s: %v", tool, err)
-		}
-
-		if res == nil {
-			t.Fatal("Expected non-nil result")
-		}
-
-		content := testutil.ResultText(t, res, testutil.GoldenInterfaceSatisfaction)
-		t.Logf("Diagnostics for embedded interfaces:\n%s", content)
-
-		// Should not report errors for correct embedded interface implementation
-		t.Logf("✓ Embedded interface satisfaction checked")
 	})
 }

@@ -16,16 +16,8 @@ const (
 	// All constants below follow the pattern: <mcp_tool>_<case>.golden
 	// where <mcp_tool> is the actual MCP tool name from core/server.go
 
-	// Discovery Tools (go_list_*)
-	GoldenListModules                     = "go_list_modules_e2e.golden"
-	GoldenListModulePackages              = "go_list_module_packages_e2e.golden"
-	GoldenListPackageSymbols              = "go_list_package_symbols_e2e.golden"
-	GoldenListPackageSymbolsComprehensive = "go_list_package_symbols_e2e_comprehensive.golden"
-	GoldenListPackageSymbolsTestFiles     = "go_list_package_symbols_test_files_e2e.golden"
-	GoldenListTools                       = "go_list_tools_e2e.golden"
-	GoldenAnalyzeWorkspace                = "go_analyze_workspace_e2e.golden"
-	GoldenGetPackageSymbolDetail          = "go_get_package_symbol_detail_e2e.golden"
-	GoldenGetStarted                      = "go_get_started_e2e.golden"
+	// Meta tool
+	GoldenListTools = "go_list_tools_e2e.golden"
 
 	// Navigation Tools (go_definition, go_implementation, go_symbol_references)
 	// go_definition - basic functionality
@@ -85,28 +77,11 @@ const (
 	GoldenDependencyGraphStdlib       = "go_get_dependency_graph_stdlib_packages.golden"
 	GoldenDependencyGraphTransitive   = "go_get_dependency_graph_transitive_dependencies.golden"
 
-	// Diagnostics Tool (go_build_check)
-	GoldenDiagnostics               = "go_build_check_e2e.golden"
-	GoldenDiagnosticsCleanProject   = "go_build_check_clean_project.golden"
-	GoldenDiagnosticsSyntaxError    = "go_build_check_syntax_error.golden"
-	GoldenDiagnosticsTypeError      = "go_build_check_type_error.golden"
-	GoldenDiagnosticsImportError    = "go_build_check_import_error.golden"
-	GoldenDiagnosticsUnusedVariable = "go_build_check_unused_variable.golden"
-	GoldenDiagnosticsDeduplication  = "go_build_check_deduplication.golden"
-	GoldenDiagnosticsTests          = "go_build_check_test_files_e2e.golden"
-
 	// Rename Symbol Tool (go_dryrun_rename_symbol)
 	GoldenRenameSymbolStrong    = "go_dryrun_rename_symbol_strong.golden"
 	GoldenRenameSymbolExact     = "go_dryrun_rename_symbol_exact_count.golden"
 	GoldenRenameSymbolMultiFile = "go_dryrun_rename_symbol_multi_file.golden"
 	GoldenRenameSymbolType      = "go_dryrun_rename_symbol_type.golden"
-
-	// Search Tool (go_search)
-	GoldenSearch                = "go_search_e2e.golden"
-	GoldenSearchTests           = "go_search_test_files_e2e.golden"
-	GoldenSearchTestFunctions   = "go_search_test_functions.golden"
-	GoldenSearchTestDefinitions = "go_search_test_definitions.golden"
-	GoldenSearchCrossFile       = "go_search_cross_file.golden"
 
 	// ===== Corner Cases & Special Scenarios =====
 	// These tests don't directly correspond to a single MCP tool
@@ -137,12 +112,10 @@ const (
 	GoldenComplexRenameScenarios         = "etc_complex_rename_scenarios.golden"
 
 	// Performance Tests
-	GoldenPerformanceAnalyzeWorkspace       = "etc_performance_analyze_workspace.golden"
-	GoldenPerformanceBatchOperations        = "etc_performance_batch_operations.golden"
-	GoldenPerformanceCallHierarchy          = "etc_performance_call_hierarchy.golden"
-	GoldenPerformanceDiagnosticsIncremental = "etc_performance_diagnostics_incremental.golden"
-	GoldenPerformanceLargeFiles             = "etc_performance_large_files.golden"
-	GoldenPerformanceLargeTestFile          = "etc_performance_large_test_file.golden"
+	GoldenPerformanceBatchOperations = "etc_performance_batch_operations.golden"
+	GoldenPerformanceCallHierarchy   = "etc_performance_call_hierarchy.golden"
+	GoldenPerformanceLargeFiles      = "etc_performance_large_files.golden"
+	GoldenPerformanceLargeTestFile   = "etc_performance_large_test_file.golden"
 
 	// Comprehensive Workflows (All Tools)
 	GoldenAllTools           = "etc_e2e_all_tools.golden"
@@ -159,9 +132,6 @@ const (
 	GoldenWorkflowToolChaining   = "etc_real_tool_chain_chaining_multiple_tools.golden"
 	GoldenWorkflowUnderstandArch = "etc_real_understand_architecture.golden"
 
-	// Real Test Files
-	GoldenRealTestFilesWorkspaceAnalysis = "etc_real_test_files_workspace_analysis.golden"
-
 	// Error Scenarios
 	GoldenErrorScenarios = "etc_e2e_error_scenarios.golden"
 	GoldenErrorHandling  = "etc_error_handling_e2e.golden"
@@ -172,23 +142,9 @@ const (
 	// File Watching
 	GoldenFileWatching = "etc_file_watching_e2e.golden"
 
-	// Empty CWD
-	GoldenEmptyCWD = "etc_empty_cwd_e2e.golden"
-
-	// Cache Behavior
-	GoldenCacheWarmedOnStartup = "etc_cache_is_warmed_on_startup.golden"
-	GoldenCacheWarmupRace      = "etc_cache_warmup_race_condition.golden"
-
-	// Stdlib Deep Dive Tests
+	// Stdlib navigation/references/types tests
 	GoldenStdlibComplexTypes = "etc_stdlib_complex_types.golden"
 	GoldenStdlibNavigation   = "etc_stdlib_navigation.golden"
 	GoldenStdlibReferences   = "etc_stdlib_references.golden"
-	GoldenStdlibContext      = "etc_stdlib_context_deep_dive.golden"
-	GoldenStdlibDatabaseSQL  = "etc_stdlib_database_sql_deep_dive.golden"
-	GoldenStdlibEncodingJSON = "etc_stdlib_encoding_json_deep_dive.golden"
 	GoldenStdlibInterfaces   = "etc_stdlib_interfaces.golden"
-	GoldenStdlibIO           = "etc_stdlib_io_deep_dive.golden"
-	GoldenStdlibNetHTTP      = "etc_stdlib_net_http_deep_dive.golden"
-	GoldenStdlibSync         = "etc_stdlib_sync_deep_dive.golden"
-	GoldenStdlibTime         = "etc_stdlib_time_deep_dive.golden"
 )

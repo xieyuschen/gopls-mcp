@@ -144,47 +144,22 @@ func main( {
 			t.Fatal(err)
 		}
 
-		t.Run("GoDiagnostics_MalformedCode", func(t *testing.T) {
-			tool := "go_build_check"
+		t.Run("GoDefinition_MalformedCode", func(t *testing.T) {
+			// Even with syntax errors, looking up an undefined symbol must not crash.
+			tool := "go_definition"
 			args := map[string]any{
-				"files": []string{mainGoPath},
+				"locator": map[string]any{
+					"symbol_name":  "main",
+					"context_file": mainGoPath,
+				},
 			}
 
 			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
 			if err != nil {
-				t.Fatalf("Failed to call go_build_check on malformed code: %v", err)
-			}
-
-			if res == nil {
-				t.Fatal("Expected non-nil result")
-			}
-
-			content := testutil.ResultText(t, res, testutil.GoldenErrorHandling)
-			t.Logf("Diagnostics for malformed code:\n%s", content)
-
-			// Should report syntax errors
-			if !strings.Contains(content, "error") &&
-				!strings.Contains(content, "expected") &&
-				!strings.Contains(content, "syntax") {
-				t.Logf("Warning: Expected diagnostic errors for malformed code")
-			}
-		})
-
-		t.Run("GoPackageAPI_MalformedCode", func(t *testing.T) {
-			tool := "go_get_package_symbol_detail"
-			args := map[string]any{
-				"packagePaths":   []string{"example.com/test"},
-				"include_bodies": false,
-			}
-
-			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
-
-			// Should handle gracefully - may return partial results or error
-			if err != nil {
-				t.Logf("Expected error for malformed code: %v", err)
+				t.Logf("Expected error against malformed code: %v", err)
 			} else if res != nil {
 				content := testutil.ResultText(t, res, testutil.GoldenErrorHandling)
-				t.Logf("Package API for malformed code:\n%s", content)
+				t.Logf("Definition for malformed code:\n%s", content)
 			}
 		})
 	})
@@ -209,38 +184,21 @@ func main() {
 			t.Fatal(err)
 		}
 
-		t.Run("GoPackageAPI_EmptyPackageList", func(t *testing.T) {
-			tool := "go_get_package_symbol_detail"
+		t.Run("GoDefinition_EmptySymbol", func(t *testing.T) {
+			tool := "go_definition"
 			args := map[string]any{
-				"packagePaths":   []string{}, // Empty list
-				"include_bodies": false,
+				"locator": map[string]any{
+					"symbol_name":  "",
+					"context_file": filepath.Join(projectDir, "main.go"),
+				},
 			}
 
 			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
-
-			// Empty package list should error or return empty result
 			if err != nil {
-				t.Logf("Empty package list caused error: %v", err)
+				t.Logf("Empty symbol_name caused error: %v", err)
 			} else if res != nil {
 				content := testutil.ResultText(t, res, testutil.GoldenErrorHandling)
-				t.Logf("Result for empty package list: %s", content)
-			}
-		})
-
-		t.Run("GoSearch_EmptyQuery", func(t *testing.T) {
-			tool := "go_search"
-			args := map[string]any{
-				"query": "", // Empty search query
-			}
-
-			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
-
-			// Empty query should return empty results or error
-			if err != nil {
-				t.Logf("Empty query caused error: %v", err)
-			} else if res != nil {
-				content := testutil.ResultText(t, res, testutil.GoldenErrorHandling)
-				t.Logf("Result for empty query: %s", content)
+				t.Logf("Result for empty symbol_name: %s", content)
 			}
 		})
 	})
@@ -313,31 +271,27 @@ func main() {
 			t.Fatal(err)
 		}
 
-		t.Run("GoSearch_VeryLongQuery", func(t *testing.T) {
-			// Create a very long search query
-			longQuery := strings.Repeat("a", 10000)
-
-			tool := "go_search"
+		t.Run("GoDefinition_VeryLongSymbolName", func(t *testing.T) {
+			longSymbol := strings.Repeat("a", 10000)
+			tool := "go_definition"
 			args := map[string]any{
-				"query": longQuery,
+				"locator": map[string]any{
+					"symbol_name":  longSymbol,
+					"context_file": filepath.Join(projectDir, "main.go"),
+				},
 			}
 
 			res, err := globalSession.CallTool(globalCtx, &mcp.CallToolParams{Name: tool, Arguments: args})
-
-			// Should handle gracefully - may return empty or error
 			if err != nil {
-				t.Logf("Very long query caused error (acceptable): %v", err)
+				t.Logf("Very long symbol caused error (acceptable): %v", err)
 			} else if res != nil {
 				content := testutil.ResultText(t, res, testutil.GoldenErrorHandling)
-				t.Logf("Result for very long query (length: %d): %s", len(content), content[:min(100, len(content))])
+				snippet := content
+				if len(snippet) > 100 {
+					snippet = snippet[:100]
+				}
+				t.Logf("Result for very long symbol (length: %d): %s", len(content), snippet)
 			}
 		})
 	})
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
