@@ -144,8 +144,8 @@ func StartMCPServer(t *testing.T, workdir string) (*mcp.ClientSession, context.C
 //	func TestXxx(t *testing.T) {
 //	    dir := testutil.CopyProjectTo(t, "simple")
 //	    // Each test uses the shared session, specifying its own workdir via Cwd parameter
-//	    result := globalSession.CallTool(globalCtx, "go_search", map[string]any{
-//	        "query": "foo",
+//	    result := globalSession.CallTool(globalCtx, "go_definition", map[string]any{
+//	        "locator": map[string]any{"symbol_name": "Foo", "context_file": dir + "/main.go"},
 //	        "Cwd": dir,  // Triggers view creation on first use
 //	    })
 //	}

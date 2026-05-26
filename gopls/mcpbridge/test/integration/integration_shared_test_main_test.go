@@ -106,11 +106,11 @@ func startSharedServer(goplsMcpPath, sharedWorkdir string) (*mcp.ClientSession, 
 //
 // Example usage:
 //
-//	t.Run("go_search", func(t *testing.T) {
+//	t.Run("go_definition", func(t *testing.T) {
 //	    tests := map[string]testCase{
-//	        "ExactMatch": {
-//	            tool: "go_search",
-//	            args: map[string]any{"query": "Hello"},
+//	        "FindHello": {
+//	            tool: "go_definition",
+//	            args: map[string]any{"locator": map[string]any{"symbol_name": "Hello", "context_file": "/path/main.go"}},
 //	            assertions: []assertion{
 //	                {description: "finds Hello", check: func(c string) bool { return strings.Contains(c, "Hello") }},
 //	            },

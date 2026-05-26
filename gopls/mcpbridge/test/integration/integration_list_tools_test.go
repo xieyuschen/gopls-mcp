@@ -30,16 +30,18 @@ func TestListToolsE2E(t *testing.T) {
 
 		// Compare against golden file (documentation + regression check)
 
-		// Should mention the number of tools
-		if !strings.Contains(content, "18 tools") && !strings.Contains(content, "19 tools") && !strings.Contains(content, "tools for Go") {
-			t.Errorf("Expected to see tool count in result, got: %s", content)
+		if !strings.Contains(content, "tools for Go") {
+			t.Errorf("Expected to see tool summary header in result, got: %s", content)
 		}
 
-		// Should mention key tools
+		// Should mention key semantic tools
 		keyTools := []string{
-			"go_search",
-			"go_get_package_symbol_detail",
+			"go_definition",
 			"go_implementation",
+			"go_symbol_references",
+			"go_get_call_hierarchy",
+			"go_get_dependency_graph",
+			"go_dryrun_rename_symbol",
 		}
 
 		for _, keyTool := range keyTools {
@@ -92,10 +94,10 @@ func TestListToolsE2E(t *testing.T) {
 
 		// Should mention categories
 		categories := []string{
-			"environment",
 			"analysis",
 			"navigation",
-			"information",
+			"refactoring",
+			"meta",
 		}
 
 		for _, category := range categories {
