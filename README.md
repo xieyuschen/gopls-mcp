@@ -4,10 +4,10 @@ Give your AI Agent the compiler's brain, not a text searcher.
 
 Documentation: https://gopls-mcp.org
 
-gopls-mcp delivers lightning-fast, language-level analysis directly to your LLM.
-Unlike standard retrieval tools that flood the context window with irrelevant text, this tool performs surgical code navigation.
+gopls-mcp delivers type-checker-level semantic analysis directly to your LLM.
+Unlike text search, it resolves Go's type system — interface satisfaction, cross-package identity, and shadowed scopes — with the same precision as the compiler.
 
-By providing only the scientifically accurate definitions and references, it maximizes your model's attention span and keeps the reasoning chain pure. Zero noise, absolute structural accuracy, and instant response times.
+Where it pays off most is on **semantic tasks**: finding all concrete types that implement an interface, tracing call hierarchies, and mapping package dependencies. A [benchmark](benchmark/) over 11 tasks shows gopls-mcp uses 2–4× fewer tool calls and finishes faster than grep-based navigation on those tasks. For simple same-file lookups, plain bash/grep remains equally effective and carries less overhead.
 
 ## Install
 
