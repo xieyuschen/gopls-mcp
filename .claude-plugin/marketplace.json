@@ -1,0 +1,14 @@
+{
+  "name": "gopls-mcp-marketplace",
+  "owner": {
+    "name": "xieyuschen",
+    "email": "xieyuschen@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "gopls-mcp",
+      "description": "Semantic Go code analysis using gopls — type-aware definitions, references, implementations, and call hierarchy.",
+      "source": "./plugin"
+    }
+  ]
+}

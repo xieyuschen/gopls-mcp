@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_session_start.sh",
+            "statusMessage": "Loading gopls-mcp context..."
+          }
+        ]
+      }
+    ]
+  }
+}
