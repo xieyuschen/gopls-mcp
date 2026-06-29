@@ -8,52 +8,63 @@ Configure gopls-mcp with Claude Code.
 
 ---
 
-### Setup gopls-mcp for Your Project
+## Install via Plugin
 
-Ensure [claude code](https://code.claude.com/docs/en/overview) is installed, and run command below to add mcp server into claude code.
+```
+/plugin marketplace add https://github.com/xieyuschen/gopls-mcp.git
+/plugin install gopls-mcp
+```
+
+That's it. The plugin handles everything automatically:
+
+- Downloads and installs the `gopls-mcp` binary to `~/.local/bin/`
+- Registers the MCP server
+- Injects the routing skill (which tools to use and when)
+- Adds a session-start hook that activates the skill each session
+
+Running `/plugin update gopls-mcp` upgrades the binary and rules together.
+
+### Verify
+
+```
+/mcp
+```
+
+You should see `gopls-mcp · ✔ connected`.
+
+---
+
+## Manual Install (without plugin)
+
+Use this only if you cannot use the plugin system.
+
+### 1. Install binary
+
+**Linux / macOS:**
+```bash
+curl -sSL https://gopls-mcp.org/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://gopls-mcp.org/install.ps1 | iex
+```
+
+### 2. Register the MCP server
 
 ```bash
 claude mcp add gopls-mcp -- gopls-mcp
 ```
 
-You will see the similar log below if succeed.
-
-```
-Added stdio MCP server gopls-mcp with command: gopls-mcp to local config
-File modified: /home/xieyuschen/.claude.json
-[project: /home/xieyuschen/codespace/gopls-mcproot]
-```
-
----
-
-### Configure Project Instructions (CLAUDE.md)
-
-Claude needs specific instructions to know when to use the semantic tools. Run this command in your project root to add the rules (safe for both new and existing projects):
-The script creates the file if it doesn't exist; preserves content if it does)
+### 3. Add routing rules to CLAUDE.md
 
 ```bash
 curl -sL https://gopls-mcp.org/gopls-mcp.prompt >> CLAUDE.md
 ```
 
-### Verify gopls-mcp
-
-Inside claude code, run `/mcp` command to verify `gopls-mcp` is availble.
+### 4. Verify
 
 ```
-(claude)> /mcp
+/mcp
+❯ gopls-mcp · ✔ connected
 ```
-
-If the tool is successfully added, you will see similiar output below:
-
-```
- Manage MCP servers
- 1 server
-
-   Local MCPs (/home/xieyuschen/.claude.json
-   [project: /home/xieyuschen/codespace/gopls-mcproot])
- ❯ gopls-mcp · ✔ connected
-
- https://code.claude.com/docs/en/mcp for help
-```
-
----

@@ -8,54 +8,63 @@ Configure gopls-mcp with Codex CLI.
 
 ---
 
-### Setup gopls-mcp for Your Project
+## Install via Plugin
 
-Ensure [codex-cli](https://github.com/openai/codex) is installed, and run command below to add mcp server.
+```bash
+codex plugin marketplace add https://github.com/xieyuschen/gopls-mcp.git
+codex plugin add gopls-mcp
+```
+
+That's it. The plugin handles everything automatically:
+
+- Downloads and installs the `gopls-mcp` binary to `~/.local/bin/`
+- Registers the MCP server
+- Injects the routing skill (which tools to use and when)
+- Adds a session-start hook that activates the skill each session
+
+Running `codex plugin update gopls-mcp` upgrades the binary and rules together.
+
+### Verify
+
+```bash
+codex mcp list
+```
+
+You should see `gopls-mcp` with status `enabled`.
+
+---
+
+## Manual Install (without plugin)
+
+Use this only if you cannot use the plugin system.
+
+### 1. Install binary
+
+**Linux / macOS:**
+```bash
+curl -sSL https://gopls-mcp.org/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://gopls-mcp.org/install.ps1 | iex
+```
+
+### 2. Register the MCP server
 
 ```bash
 codex mcp add gopls-mcp -- gopls-mcp
 ```
 
-You will see the similar log below if succeed.
-
-```
-Added global MCP server 'gopls-mcp'.
-```
-
----
-
-### Configure Project Instructions (AGENTS.md)
-
-Codex needs specific instructions to know when to use the semantic tools. Run this command in your project root to add the rules:
+### 3. Add routing rules to AGENTS.md
 
 ```bash
 curl -sL https://gopls-mcp.org/gopls-mcp.prompt >> AGENTS.md
 ```
 
-### Verify gopls-mcp
-
-Inside codex-cli, run mcp list command to verify `gopls-mcp` is available.
-
-```
-$ codex mcp list
-Name       Command    Args  Env  Cwd  Status   Auth       
-gopls-mcp  gopls-mcp  -     -    -    enabled  Unsupported
-```
-
-If the tool is successfully added, you will see gopls-mcp in the server list.
-
----
-
-Enter `codex` and run command `/mcp`:
+### 4. Verify
 
 ```
 /mcp
-
-🔌  MCP Tools
-
-  • gopls-mcp
-    • Status: enabled
-    • Auth: Unsupported
-    • Command: gopls-mcp
-    ...
+• gopls-mcp · enabled
 ```

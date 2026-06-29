@@ -1,0 +1,20 @@
+{
+  "name": "gopls-mcp",
+  "version": "1.0.5",
+  "description": "Semantic Go code analysis using gopls — type-aware definitions, references, implementations, and call hierarchy.",
+  "author": {
+    "name": "xieyuschen",
+    "email": "xieyuschen@gmail.com"
+  },
+  "homepage": "https://gopls-mcp.org",
+  "repository": "https://github.com/xieyuschen/gopls-mcp.git",
+  "license": "BSD-3-Clause",
+  "keywords": ["go", "golang", "gopls", "mcp", "semantic", "code-analysis"],
+  "skills": "./skills/",
+  "mcpServers": {
+    "gopls-mcp": {
+      "type": "stdio",
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/run.sh"
+    }
+  }
+}

@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.xieyuschen/gopls-mcp",
   "description": "Semantic code analysis for Go using gopls - language-aware navigation, definitions, references",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "author": "xieyuschen",
   "license": "BSD-3-Clause",
   "repository": {

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "gopls-mcp": {
+      "type": "stdio",
+      "command": "./scripts/run.sh",
+      "cwd": "."
+    }
+  }
+}
