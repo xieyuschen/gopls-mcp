@@ -7,6 +7,9 @@ site/venv/
 site/docs/
 
 gopls/gopls
+# Benchmark results (published in release notes, not committed)
+benchmark/results/
+
 # Claude Code
 .claude/
 .gemini/
