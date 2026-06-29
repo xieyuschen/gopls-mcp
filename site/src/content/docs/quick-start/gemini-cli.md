@@ -8,9 +8,21 @@ Configure gopls-mcp with Gemini CLI.
 
 ---
 
-### Setup gopls-mcp for Your Project
+### 1. Install binary
 
-Ensure [gemini-cli](https://github.com/google-gemini/gemini-cli) is installed, and run command below to add mcp server.
+**Linux / macOS:**
+```bash
+curl -sSL https://gopls-mcp.org/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://gopls-mcp.org/install.ps1 | iex
+```
+
+### 2. Setup gopls-mcp for Your Project
+
+Ensure [gemini-cli](https://github.com/google-gemini/gemini-cli) is installed, and run the command below to add the MCP server.
 
 ```bash
 gemini mcp add gopls-mcp gopls-mcp
@@ -24,7 +36,7 @@ MCP server "gopls-mcp" added to project settings. (stdio)
 
 ---
 
-### Configure Project Instructions (GEMINI.md)
+### 3. Configure Project Instructions (GEMINI.md)
 
 Gemini needs specific instructions to know when to use the semantic tools. Run this command in your project root to add the rules:
 
@@ -32,7 +44,7 @@ Gemini needs specific instructions to know when to use the semantic tools. Run t
 curl -sL https://gopls-mcp.org/gopls-mcp.prompt >> GEMINI.md
 ```
 
-### Verify gopls-mcp
+### 4. Verify gopls-mcp
 
 Inside gemini-cli, run mcp list command to verify `gopls-mcp` is available.
 
