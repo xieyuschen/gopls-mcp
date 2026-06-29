@@ -8,13 +8,23 @@ Configure gopls-mcp with Cursor IDE.
 
 ---
 
-### Setup gopls-mcp for Your Project
+### 1. Install binary
 
-Ensure [Cursor](https://cursor.sh) is installed, and gopls-mcp is already installed on your system.
+Ensure [Cursor](https://cursor.sh) is installed, then install `gopls-mcp` on your system.
+
+**Linux / macOS:**
+```bash
+curl -sSL https://gopls-mcp.org/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://gopls-mcp.org/install.ps1 | iex
+```
 
 ---
 
-### Configure MCP Server
+### 2. Configure MCP Server
 
 Cursor uses JSON configuration files to manage MCP servers. You can configure gopls-mcp at either the **project level** or **global level**.
 
@@ -58,7 +68,7 @@ Then add the same configuration to `~/.cursor/mcp.json`.
 
 ---
 
-### Configure Project Instructions (.cursorrules)
+### 3. Configure Project Instructions (.cursorrules)
 
 Cursor needs specific instructions to know when to use the semantic tools. Run this command in your project root:
 
@@ -70,7 +80,7 @@ This creates a `.cursorrules` file in your project directory with instructions f
 
 ---
 
-### Verify gopls-mcp
+### 4. Verify gopls-mcp
 
 1. **Open Cursor Settings**:
    - Click the gear icon in the top-right corner
@@ -124,4 +134,3 @@ This allows Cursor to execute all gopls-mcp tools without manual confirmation.
 3. Try explicitly mentioning Go-related tasks
 
 ---
-

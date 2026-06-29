@@ -1,5 +1,6 @@
 {
   "name": "gopls-mcp-marketplace",
+  "description": "Marketplace for gopls-mcp, providing semantic Go code analysis tools powered by gopls.",
   "owner": {
     "name": "xieyuschen",
     "email": "xieyuschen@gmail.com"

@@ -96,13 +96,21 @@ import GoReferences from '../../components/mcp/GoReferences.astro';
 
 ### Quick Install
 
-```bash
-curl -sSL https://gopls-mcp.org/install.sh | bash
+**Claude Code**
+
+```text
+/plugin marketplace add https://github.com/xieyuschen/gopls-mcp.git
+/plugin install gopls-mcp
 ```
 
+**Codex CLI**
+
 ```bash
-claude mcp add gopls-mcp -- gopls-mcp -workdir .
+codex plugin marketplace add https://github.com/xieyuschen/gopls-mcp.git
+codex plugin add gopls-mcp
 ```
+
+The plugin installs the binary, registers the MCP server, and injects the tool-routing rules.
 
 </div>
 

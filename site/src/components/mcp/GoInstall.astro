@@ -11,7 +11,7 @@ import McpStyles from './McpStyles.astro';
       <polyline points="4 17 10 11 4 5"></polyline>
       <line x1="12" y1="19" x2="20" y2="19"></line>
     </svg>
-    <span>Quick Install</span>
+    <span>Plugin Install</span>
   </div>
 
   <div class="editor-window">
@@ -24,12 +24,16 @@ import McpStyles from './McpStyles.astro';
         </svg>
         <span class="file-name">terminal</span>
       </div>
-      <span class="editor-pos">Linux / macOS</span>
+      <span class="editor-pos">Claude Code</span>
     </div>
     <div class="editor-body">
       <div class="line">
-        <span class="line-num">$</span>
-        <span class="val-str"> curl -sSL https://gopls-mcp.org/install.sh | bash</span>
+        <span class="line-num">&gt;</span>
+        <span class="val-str"> /plugin marketplace add https://github.com/xieyuschen/gopls-mcp.git</span>
+      </div>
+      <div class="line">
+        <span class="line-num">&gt;</span>
+        <span class="val-str"> /plugin install gopls-mcp</span>
       </div>
     </div>
   </div>
@@ -37,13 +41,14 @@ import McpStyles from './McpStyles.astro';
   <div class="protocol-trace">
     <div class="trace-header">
       <svg class="trace-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-      <span class="trace-label">ADD TO CLAUDE CODE</span>
+      <span class="trace-label">CODEX CLI</span>
     </div>
 
     <div class="trace-item request">
-      <div class="trace-direction">>> Add MCP server</div>
+      <div class="trace-direction">>> Install plugin</div>
       <div class="trace-content">
-        <span class="key">claude mcp add</span> <span class="val-str">gopls-mcp</span> <span class="key">--</span> <span class="val-str">gopls-mcp -workdir .</span>
+        <span class="key">codex plugin marketplace add</span> <span class="val-str">https://github.com/xieyuschen/gopls-mcp.git</span><br/>
+        <span class="key">codex plugin add</span> <span class="val-str">gopls-mcp</span>
       </div>
     </div>
 
