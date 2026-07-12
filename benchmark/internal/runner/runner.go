@@ -24,13 +24,14 @@ to invoke them, and do NOT spawn subagents or subprocesses to start gopls-mcp.
 Use only Bash, Read, and Grep to answer the question.`
 
 // goplsPreamble is prepended to every gopls-group task prompt. It tells the
-// agent that semantic MCP tools are available, how to call them (deferred two-step
-// protocol), and that their results are authoritative.
+// agent that semantic MCP tools are available and that their schemas are already
+// embedded in the appended gopls-mcp system prompt.
 const goplsPreamble = `IMPORTANT: You have access to gopls-mcp semantic tools via MCP. These are DEFERRED tools.
 
-HOW TO CALL THEM — follow this two-step protocol exactly:
-1. Call ToolSearch with query "select:mcp__gopls-mcp__<tool_name>" to load its schema.
-2. Then call the tool DIRECTLY as mcp__gopls-mcp__<tool_name> in the SAME conversation turn.
+HOW TO CALL THEM:
+- The appended gopls-mcp system prompt already contains the input schemas.
+- Call the tool DIRECTLY as mcp__gopls-mcp__<tool_name>.
+- Do NOT call ToolSearch just to load gopls-mcp schemas.
 
 Available tools and when to use them:
   - mcp__gopls-mcp__go_definition        : jump to a symbol's definition
@@ -43,6 +44,7 @@ Available tools and when to use them:
 STRICT RULES — violations waste many minutes:
 - Do NOT spawn sub-agents or Agent tool calls to use these tools — call them DIRECTLY yourself.
 - Do NOT use Bash/Python subprocesses to invoke the gopls-mcp binary manually.
+- Do NOT call ToolSearch for gopls-mcp tools; the schemas are already in the prompt.
 - Do NOT fall back to grep/bash/read for tasks these tools cover.
 - When a gopls-mcp tool returns results, treat them as complete and correct — do NOT re-verify.`
 
@@ -56,14 +58,14 @@ const (
 
 // Config holds parameters for a single benchmark run.
 type Config struct {
-	Mode          Mode
-	TaskName      string
-	Prompt        string
-	WorkDir       string // cwd passed to claude (the target Go project)
-	GoplsMCPBin   string // path to gopls-mcp binary (required for ModeGopls)
-	GoplsPrompt   string // content of gopls-mcp.prompt to inject (required for ModeGopls)
-	Model         string // empty = claude default
-	ClaudeBin     string // path to claude CLI; defaults to "claude" in PATH
+	Mode        Mode
+	TaskName    string
+	Prompt      string
+	WorkDir     string // cwd passed to claude (the target Go project)
+	GoplsMCPBin string // path to gopls-mcp binary (required for ModeGopls)
+	GoplsPrompt string // content of gopls-mcp.prompt to inject (required for ModeGopls)
+	Model       string // empty = claude default
+	ClaudeBin   string // path to claude CLI; defaults to "claude" in PATH
 }
 
 // RunResult is the outcome of a single headless claude invocation.

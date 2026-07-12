@@ -4,7 +4,10 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -16,6 +19,11 @@ const (
 	autoGenStartMarker = "<!-- Marker: AUTO-GEN-START -->"
 	autoGenEndMarker   = "<!-- Marker: AUTO-GEN-END -->"
 )
+
+var promptSchemaPaths = []string{
+	"../../gopls-mcp.prompt",
+	"../../../plugin/skills/gopls-mcp/SKILL.md",
+}
 
 func main() {
 	// 1. Generate reference.md
@@ -39,6 +47,13 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("CLAUDE.md updated successfully")
+
+	// 3. Update prompt-embedded compact tool schemas.
+	if err := updatePromptSchemas(context.Background(), promptSchemaPaths); err != nil {
+		fmt.Fprintf(os.Stderr, "Error updating prompt schemas: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("prompt schemas updated successfully")
 }
 
 // updateCLAUDEMD updates the CLAUDE.md file by replacing content between the auto-gen markers
@@ -56,7 +71,7 @@ func updateCLAUDEMD(path string) error {
 	}
 
 	// Find and replace content between markers
-	updated, err := replaceBetweenMarkers(string(content), toolRef)
+	updated, err := replaceBetweenMarkers(string(content), toolRef, autoGenStartMarker, autoGenEndMarker)
 	if err != nil {
 		return fmt.Errorf("replacing content between markers: %w", err)
 	}
@@ -69,16 +84,49 @@ func updateCLAUDEMD(path string) error {
 	return nil
 }
 
-// replaceBetweenMarkers replaces content between AUTO-GEN-START and AUTO-GEN-END markers
-func replaceBetweenMarkers(content, newContent string) (string, error) {
-	startIdx := strings.Index(content, autoGenStartMarker)
+// updatePromptSchemas updates every prompt surface that embeds the compact MCP
+// tool schema block.
+func updatePromptSchemas(ctx context.Context, paths []string) error {
+	oldLogOutput := log.Writer()
+	log.SetOutput(io.Discard)
+	defer log.SetOutput(oldLogOutput)
+
+	toolSchemas, err := core.GeneratePromptToolSchemas(ctx)
+	if err != nil {
+		return fmt.Errorf("generating prompt tool schemas: %w", err)
+	}
+	for _, path := range paths {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", path, err)
+		}
+		updated, err := replaceBetweenMarkers(
+			string(content),
+			toolSchemas,
+			core.PromptSchemaStartMarker,
+			core.PromptSchemaEndMarker,
+		)
+		if err != nil {
+			return fmt.Errorf("replacing schema block in %s: %w", path, err)
+		}
+		if err := os.WriteFile(path, []byte(updated), 0644); err != nil {
+			return fmt.Errorf("writing %s: %w", path, err)
+		}
+	}
+	return nil
+}
+
+// replaceBetweenMarkers replaces content between marker pairs, preserving the
+// markers themselves.
+func replaceBetweenMarkers(content, newContent, startMarker, endMarker string) (string, error) {
+	startIdx := strings.Index(content, startMarker)
 	if startIdx == -1 {
-		return "", fmt.Errorf("marker %q not found in file", autoGenStartMarker)
+		return "", fmt.Errorf("marker %q not found in file", startMarker)
 	}
 
-	endIdx := strings.Index(content, autoGenEndMarker)
+	endIdx := strings.Index(content, endMarker)
 	if endIdx == -1 {
-		return "", fmt.Errorf("marker %q not found in file", autoGenEndMarker)
+		return "", fmt.Errorf("marker %q not found in file", endMarker)
 	}
 
 	if startIdx >= endIdx {
@@ -88,12 +136,14 @@ func replaceBetweenMarkers(content, newContent string) (string, error) {
 	// Include the markers themselves in the replacement
 	var buf bytes.Buffer
 	buf.WriteString(content[:startIdx])
-	buf.WriteString(autoGenStartMarker)
+	buf.WriteString(startMarker)
 	buf.WriteString("\n")
 	buf.WriteString(newContent)
-	buf.WriteString("\n")
-	buf.WriteString(autoGenEndMarker)
-	buf.WriteString(content[endIdx+len(autoGenEndMarker):])
+	if !strings.HasSuffix(newContent, "\n") {
+		buf.WriteString("\n")
+	}
+	buf.WriteString(endMarker)
+	buf.WriteString(content[endIdx+len(endMarker):])
 
 	return buf.String(), nil
 }
