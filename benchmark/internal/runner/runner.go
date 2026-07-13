@@ -24,8 +24,14 @@ to invoke them, and do NOT spawn subagents or subprocesses to start gopls-mcp.
 Use only Bash, Read, and Grep to answer the question.`
 
 // goplsPreamble is prepended to every gopls-group task prompt. It tells the
-// agent that semantic MCP tools are available, how to call them (deferred two-step
-// protocol), and that their results are authoritative.
+// agent that semantic MCP tools are available, how to call them (deferred
+// two-step protocol), and that their results are authoritative.
+//
+// Keep the ToolSearch hydration step for now. The alternative experiment that
+// inlined compact tool schemas into the appended prompt regressed the benchmark
+// suite on 2026-07-13 (branch: inline-gopls-schema-prompt, commit: 39f6efe),
+// so master should treat that direction as unproven until a narrower variant
+// shows a clear win.
 const goplsPreamble = `IMPORTANT: You have access to gopls-mcp semantic tools via MCP. These are DEFERRED tools.
 
 HOW TO CALL THEM — follow this two-step protocol exactly:

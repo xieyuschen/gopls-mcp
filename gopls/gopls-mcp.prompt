@@ -22,6 +22,11 @@ names, running `go build`, scanning files — use your native tools (`Glob`,
 `Grep`, `Read`, `Bash`). They are already optimal for those jobs, so we
 deliberately don't ship duplicates.
 
+<!-- Note: do not inline compact tool schemas here without fresh benchmark
+evidence. The 2026-07-13 experiment on branch inline-gopls-schema-prompt
+(commit 39f6efe) regressed score, latency, and cost versus the deferred
+ToolSearch protocol. -->
+
 <!-- Marker: AUTO-GEN-START -->
 ### Semantic tools (Exclusive - no grep/Read fallback)
 | Task | Tool |
