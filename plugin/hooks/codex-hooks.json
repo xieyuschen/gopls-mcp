@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./scripts/on_session_start.sh",
+            "command": "\"${PLUGIN_ROOT}/scripts/on_session_start.sh\"",
             "statusMessage": "Loading gopls-mcp context..."
           }
         ]
