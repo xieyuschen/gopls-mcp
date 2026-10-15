@@ -1,6 +1,6 @@
 {
   "name": "gopls-mcp",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Semantic Go code analysis using gopls — type-aware definitions, references, implementations, and call hierarchy.",
   "author": {
     "name": "xieyuschen",

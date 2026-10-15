@@ -31,7 +31,7 @@
 
 set -euo pipefail
 
-EXPECTED_VERSION="1.0.7"
+EXPECTED_VERSION="1.0.8"
 BINARY="${HOME}/.local/bin/gopls-mcp"
 REPO="xieyuschen/gopls-mcp"
 
