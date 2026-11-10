@@ -46,6 +46,19 @@ deliberately don't ship duplicates.
 ## Tool-specific constraints
 
 * **`go_implementation`**: Interfaces and types only. **Not** for functions.
+* **Invocation structure**: Semantic tools that accept a symbol locator require
+  a root `locator` object; do not pass `symbol_name` or `context_file` as
+  top-level arguments. For example, call `go_definition` with:
+
+  ```json
+  {
+    "locator": {
+      "symbol_name": "Start",
+      "context_file": "/absolute/path/to/server.go"
+    }
+  }
+  ```
+
 * **General locator parameters**:
   * `symbol_name`: bare identifier, no package prefix
     (`"Start"`, not `"Server.Start"`).
